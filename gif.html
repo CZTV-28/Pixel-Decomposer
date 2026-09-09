@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#151918" />
+    <title>Pixel Decomposer - GIF 动作</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <script defer src="i18n.js"></script>
+    <script defer src="workspace-transfer.js"></script>
+    <script defer src="project-lifecycle.js"></script>
+    <script defer src="gif.js"></script>
+    <script defer src="animation-studio.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="appbar">
+        <a class="brand" href="index.html" aria-label="返回贴图拆分"><span class="brand-mark" aria-hidden="true"><b></b><b></b><b></b><b></b></span><span>Pixel<br /><em>Decomposer</em></span></a>
+        <div class="project-name-wrap"><button class="command-button" id="backToSplitButton"><i data-lucide="arrow-left" aria-hidden="true"></i><span>贴图拆分</span></button><input id="gifProjectName" class="project-name" value="未命名动作工程" aria-label="工程名称" /></div>
+        <div class="appbar-actions"><button class="command-button" id="openGifProjectButton"><i data-lucide="folder-open" aria-hidden="true"></i><span>打开工程</span></button><button class="command-button" id="saveGifProjectButton"><i data-lucide="save" aria-hidden="true"></i><span>保存编排</span></button><button class="command-button" id="openSettingsButton" aria-label="设置" data-tip="设置"><i data-lucide="settings" aria-hidden="true"></i><span>设置</span></button><button class="command-button primary" id="gifExportButton"><i data-lucide="download" aria-hidden="true"></i><span>导出 GIF</span></button></div>
+      </header>
+      <main class="gif-shell">
+        <aside class="gif-frames" aria-label="GIF 帧顺序">
+          <div class="gif-list-header"><div><strong>帧顺序</strong><span id="gifFrameCount">0 帧</span></div><div class="gif-list-actions"><button class="icon-button" id="selectSplitFrames" aria-label="从拆分结果选择帧" data-tip="选择拆分帧"><i data-lucide="list-plus" aria-hidden="true"></i></button><button class="icon-button" id="importGifImages" aria-label="导入图片作为 GIF 帧" data-tip="导入图片帧"><i data-lucide="images" aria-hidden="true"></i></button><button class="icon-button" id="setUniformDuration" aria-label="统一设为 0.12 秒" data-tip="统一设为 0.12 秒"><i data-lucide="timer-reset" aria-hidden="true"></i></button></div></div>
+          <div class="gif-frame-list" id="gifFrameList"></div>
+        </aside>
+        <section class="gif-preview-panel" aria-label="GIF 动作预览">
+          <div class="workspace-toolbar"><div class="toolbar-left"><button class="icon-button" id="playGifButton" aria-label="播放 GIF 预览" data-tip="播放预览"><i data-lucide="play" aria-hidden="true"></i></button><button class="icon-button" id="stopGifButton" aria-label="停止预览" data-tip="停止预览"><i data-lucide="square" aria-hidden="true"></i></button><span class="toolbar-divider" aria-hidden="true"></span><label class="check-row"><input id="loopGif" type="checkbox" checked />循环</label></div><div class="toolbar-right"><i data-lucide="timer" aria-hidden="true"></i><span>精度 0.01 秒</span></div></div>
+          <div class="gif-canvas-wrap"><div class="gif-canvas-board"><canvas id="gifPreviewCanvas" width="256" height="256" aria-label="GIF 预览画布"></canvas></div></div>
+          <div class="gif-preview-footer"><span class="frame-badge" id="previewIndex">-- / --</span><div class="preview-label"><strong id="previewName">尚未加载帧</strong><span id="previewDuration">--</span></div><button class="icon-button" id="nextGifFrame" aria-label="下一帧" data-tip="下一帧"><i data-lucide="step-forward" aria-hidden="true"></i></button></div>
+        </section>
+        <aside class="gif-inspector" aria-label="GIF 输出设置">
+          <section class="gif-stat"><div class="panel-heading"><span>动作节奏</span><span class="key-hint">GIF</span></div><div class="gif-stat-value" id="totalDuration">0.00 s</div><div class="gif-stat-row"><span>总时长</span><b id="totalDurationSmall">0.00 秒</b></div><div class="gif-stat-row"><span>平均帧率</span><b id="averageFps">0.0 FPS</b></div><div class="gif-stat-row"><span>输出尺寸</span><b id="gifDimensions">--</b></div></section>
+          <section class="gif-note"><strong>逐帧控制</strong>可选择部分拆分帧，或从设备导入图片；同一素材可重复加入。左侧可拖动行或使用箭头改变顺序；每个输入框的最小步进为 0.01 秒。</section>
+          <button class="gif-open-button" id="openGifProjectSideButton"><i data-lucide="folder-open" aria-hidden="true"></i>打开 .pdec 工程</button>
+          <div class="gif-export-block"><label class="scale-select">GIF 像素倍率<select id="gifScale" aria-label="GIF 导出像素倍率"><option value="1">X1 原始大小</option><option value="2">X2 像素放大</option><option value="4">X4 像素放大</option><option value="8">X8 像素放大</option><option value="16">X16 像素放大</option></select></label><button class="gif-entry" id="gifExportSideButton"><i data-lucide="film" aria-hidden="true"></i><span><b>GIF 动作</b><small>保留每一帧的自定义时长</small></span><i data-lucide="arrow-down-to-line" aria-hidden="true"></i></button></div>
+        </aside>
+      </main>
+    </div>
+    <input id="gifProjectInput" type="file" accept=".pdec,application/json" hidden />
+    <input id="gifImageInput" type="file" accept="image/png,image/webp,image/gif,image/jpeg" multiple hidden />
+    <div id="gifSourceDialog" class="project-dialog project-start-dialog" role="dialog" aria-modal="true" aria-labelledby="gifSourceTitle" hidden>
+      <section class="project-dialog-panel gif-source-dialog-panel">
+        <i data-lucide="film" aria-hidden="true"></i>
+        <h1 id="gifSourceTitle">选择 GIF 帧来源</h1>
+        <p>从拆分结果勾选需要的帧，或直接导入设备中的图片。之后仍可重复加入同一素材。</p>
+        <div id="gifSplitFramePicker" class="gif-split-frame-picker"></div>
+        <div class="project-dialog-actions gif-source-actions"><button class="command-button" id="closeGifSourceDialog"><span>稍后选择</span></button><button class="command-button" id="importGifImagesDialog"><i data-lucide="images" aria-hidden="true"></i><span>导入图片</span></button><button class="command-button primary" id="addSelectedSplitFrames"><i data-lucide="list-plus" aria-hidden="true"></i><span>添加所选帧</span></button></div>
+      </section>
+    </div>
+    <div id="projectCloseDialog" class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="projectCloseTitle" hidden>
+      <section class="project-dialog-panel">
+        <i data-lucide="triangle-alert" aria-hidden="true"></i>
+        <h1 id="projectCloseTitle">工程尚未保存</h1>
+        <p>关闭后，未保存的 GIF 帧顺序与逐帧时长修改将永久丢失。</p>
+        <div class="project-dialog-actions"><button class="command-button" data-project-close-cancel><span>取消</span></button><button class="command-button danger" data-project-close-discard><span>不保存并关闭</span></button><button class="command-button primary" data-project-close-save><i data-lucide="save" aria-hidden="true"></i><span>保存并关闭</span></button></div>
+      </section>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

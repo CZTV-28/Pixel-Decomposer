@@ -1,0 +1,12 @@
+const {app,BrowserWindow}=require('electron');
+const fs=require('fs'),path=require('path');
+app.whenReady().then(async()=>{const w=new BrowserWindow({show:false,webPreferences:{sandbox:true}});const errors=[];w.webContents.on('console-message',(_,level,message)=>{if(level===3)errors.push(message);});
+try{
+await w.loadFile(path.resolve('www/index.html'));await new Promise(r=>setTimeout(r,600));
+const chroma=await w.webContents.executeJavaScript(`(async()=>{sourceCanvas.width=5;sourceCanvas.height=5;sourceContext.fillStyle='#00ff00';sourceContext.fillRect(0,0,5,5);sourceContext.fillStyle='#ffffff';sourceContext.fillRect(1,1,3,3);sourceContext.fillStyle='#00ff00';sourceContext.fillRect(2,2,1,1);state.sourceData=sourceCanvas.toDataURL();document.querySelector('#keyApply').click();const p=sourceContext.getImageData(0,0,5,5).data;return {edge:p[3],inside:p[(2*5+2)*4+3],backup:!!projectData().sourceOriginal};})()`);
+if(chroma.edge!==0||chroma.inside!==255||!chroma.backup)throw Error('Chroma preservation failed');
+await w.webContents.executeJavaScript('PixelProjectLifecycle.allowNavigation()');await w.loadFile(path.resolve('www/gif.html'));await new Promise(r=>setTimeout(r,600));
+const animation=await w.webContents.executeJavaScript(`(async()=>{const c=document.createElement('canvas');c.width=2;c.height=2;c.getContext('2d').fillRect(0,0,2,2);state.availableFrames=[{name:'body',data:c.toDataURL(),width:2,height:2}];[...document.querySelectorAll('button')].find(b=>b.textContent==='画布 / 部件动画').click();document.querySelector('#aSource').click();await new Promise(r=>setTimeout(r,100));document.querySelector('#aKey').click();document.querySelector('#at').value='1';document.querySelector('#at').dispatchEvent(new Event('change'));document.querySelector('#ax').value='180';document.querySelector('#ax').dispatchEvent(new Event('change'));document.querySelector('#aBake').click();await new Promise(r=>setTimeout(r,700));const p=projectData();return {frames:p.frames.length,width:p.frames[0]?.width,keys:p.animationScene.layers[0].keys.length};})()`);
+if(animation.frames!==10||animation.width!==240||animation.keys!==2)throw Error('Animation failed '+JSON.stringify(animation));
+fs.writeFileSync('artifacts/animation-verification.json',JSON.stringify({chroma,animation,errors},null,2));app.exit(0);
+}catch(e){fs.writeFileSync('artifacts/animation-verification.json',JSON.stringify({error:e.stack,errors}));app.exit(1);}});

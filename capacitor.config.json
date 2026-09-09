@@ -1,0 +1,6 @@
+{
+  "appId": "cn.pixeldecomposer.app",
+  "appName": "Pixel Decomposer",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

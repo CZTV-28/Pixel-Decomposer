@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#151918" />
+    <title>Pixel Decomposer - 贴图拆分</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script defer src="i18n.js"></script>
+    <script defer src="workspace-transfer.js"></script>
+    <script defer src="project-lifecycle.js"></script>
+    <script defer src="app.js"></script>
+    <script defer src="chroma.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="appbar">
+        <a class="brand" href="index.html" aria-label="Pixel Decomposer 贴图拆分">
+          <span class="brand-mark" aria-hidden="true"><b></b><b></b><b></b><b></b></span>
+          <span>Pixel<br /><em>Decomposer</em></span>
+        </a>
+        <div class="project-name-wrap">
+          <input id="projectName" class="project-name" value="未命名贴图工程" aria-label="工程名称" />
+          <span id="saveState" class="save-state">未保存</span>
+        </div>
+        <div class="appbar-actions">
+          <button class="command-button" id="openProjectButton"><i data-lucide="folder-open" aria-hidden="true"></i><span>打开工程</span></button>
+          <button class="command-button" id="saveProjectButton"><i data-lucide="save" aria-hidden="true"></i><span>保存工程</span></button>
+          <button class="command-button" id="goEditorButton"><i data-lucide="pencil-ruler" aria-hidden="true"></i><span>编辑贴图</span></button>
+          <button class="command-button" id="openSettingsButton" aria-label="设置" data-tip="设置"><i data-lucide="settings" aria-hidden="true"></i><span>设置</span></button>
+          <button class="command-button primary" id="goGifButton"><i data-lucide="film" aria-hidden="true"></i><span>GIF 动作</span></button>
+        </div>
+      </header>
+
+      <main class="app-shell">
+        <aside class="left-panel" aria-label="源贴图与识别方式">
+          <section class="panel-section source-section">
+            <div class="panel-heading"><span>源贴图</span><button class="icon-button" id="clearSource" aria-label="清除源贴图" data-tip="清除源贴图"><i data-lucide="trash-2" aria-hidden="true"></i></button></div>
+            <button class="import-button" id="importButton"><i data-lucide="image-up" aria-hidden="true"></i><span>导入贴图</span></button>
+            <p class="source-file" id="sourceFileName">尚未导入贴图</p>
+            <div class="source-stat"><span id="sourceSize">64 × 64 px</span><span>原图未修改</span></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="panel-heading"><span>候选帧识别</span><span class="key-hint">A</span></div>
+            <div class="slice-mode" role="group" aria-label="候选帧识别方式">
+              <button class="slice-option active" id="autoMode" aria-pressed="true"><i data-lucide="scan-search" aria-hidden="true"></i><span>智能识别</span></button>
+              <button class="slice-option" id="gridMode" aria-pressed="false"><i data-lucide="grid-3x3" aria-hidden="true"></i><span>网格识别</span></button>
+            </div>
+            <div id="autoControls" class="slice-controls"><label>最小像素面积 <output id="minAreaValue">36</output><input id="minArea" type="range" min="1" max="300" value="36" /></label><label class="check-row"><input id="mergeNearbyEffects" type="checkbox" checked />合并邻近的零碎特效</label><label class="check-row"><input id="mergeOverlappingBodies" type="checkbox" checked />合并重叠的大部件</label></div>
+            <div id="gridControls" class="slice-controls grid-controls is-hidden"><label>列<input id="gridCols" type="number" value="4" min="1" max="64" /></label><label>行<input id="gridRows" type="number" value="2" min="1" max="64" /></label></div>
+            <button class="wide-action" id="detectButton"><i data-lucide="scan-line" aria-hidden="true"></i><span>识别可拆分结构</span></button>
+          </section>
+
+          <section class="panel-section help-section">
+            <div class="panel-heading"><span>手动优化</span><span class="key-hint">M</span></div>
+            <p>在原图上拖动即可新增矩形选区。自动识别出的框也可在右侧修改坐标、宽高和名称。</p>
+            <button class="subtle-action" id="clearRegionsButton">清空全部选区</button>
+          </section>
+        </aside>
+
+        <section class="editor-panel" aria-label="非破坏性贴图拆分工作台">
+          <div class="workspace-toolbar">
+            <div class="toolbar-left">
+              <button class="selection-mode active" id="manualSelectButton" aria-pressed="true"><i data-lucide="square-dashed-mouse-pointer" aria-hidden="true"></i><span>矩形选区</span></button>
+              <button class="selection-mode" id="panCanvasButton" aria-pressed="false"><i data-lucide="hand" aria-hidden="true"></i><span>移动视角</span></button>
+              <button class="icon-button" id="deleteRegionButton" aria-label="删除当前选区" data-tip="删除当前选区"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+              <button class="icon-button" id="undoSplit" aria-label="撤销选区操作" data-tip="撤销选区操作"><i data-lucide="undo-2" aria-hidden="true"></i></button>
+              <button class="icon-button" id="redoSplit" aria-label="重做选区操作" data-tip="重做选区操作"><i data-lucide="redo-2" aria-hidden="true"></i></button>
+              <span class="toolbar-divider" aria-hidden="true"></span>
+              <button class="icon-button" id="zoomOut" aria-label="缩小原图" data-tip="缩小"><i data-lucide="minus" aria-hidden="true"></i></button>
+              <label class="zoom-field" aria-label="原图缩放倍率"><input id="zoomReset" type="number" min="25" max="800" step="1" value="100" inputmode="decimal" /><span>%</span></label>
+              <button class="icon-button" id="zoomIn" aria-label="放大原图" data-tip="放大"><i data-lucide="plus" aria-hidden="true"></i></button>
+            </div>
+            <div class="toolbar-right"><i data-lucide="scan" aria-hidden="true"></i><span id="pointerReadout">x: -- y: --</span></div>
+            <div class="mobile-work-actions" aria-label="移动端交付操作"><button class="icon-button" id="splitAllMobile" aria-label="全部拆出" data-tip="全部拆出"><i data-lucide="scissors" aria-hidden="true"></i></button><button class="icon-button" id="editFrameMobile" aria-label="编辑贴图" data-tip="编辑贴图"><i data-lucide="pencil-ruler" aria-hidden="true"></i></button><button class="icon-button" id="pngExportMobile" aria-label="导出选中 PNG" data-tip="导出选中 PNG"><i data-lucide="image-down" aria-hidden="true"></i></button><button class="icon-button" id="zipExportMobile" aria-label="导出 PNG 素材包" data-tip="导出 PNG 素材包"><i data-lucide="archive" aria-hidden="true"></i></button></div>
+          </div>
+
+          <div class="workspace" id="workspace">
+            <div class="workspace-guides horizontal"></div><div class="workspace-guides vertical"></div>
+            <div class="canvas-stage split-stage" id="canvasStage" tabindex="0" aria-label="源贴图，拖动以创建矩形选区">
+              <canvas id="sourceViewCanvas" width="288" height="176"></canvas>
+              <canvas id="selectionCanvas" width="288" height="176"></canvas>
+              <div class="empty-canvas-prompt" id="emptyCanvasPrompt">
+                <i data-lucide="image-plus" aria-hidden="true"></i>
+                <strong>导入贴图</strong>
+                <span>点击选择，或将 PNG、WebP、GIF、JPEG 拖到这里</span>
+                <button id="emptyImportButton" type="button"><i data-lucide="folder-up" aria-hidden="true"></i>选择图片</button>
+              </div>
+              <div id="dropPrompt" class="drop-prompt"><i data-lucide="image-up" aria-hidden="true"></i><span>把待拆贴图拖到这里</span></div>
+            </div>
+          </div>
+
+          <section class="results-panel" aria-label="已拆出的独立帧">
+            <div class="results-header"><div><span class="panel-kicker">拆分结果</span><strong id="resultsTitle">0 个独立帧</strong></div><span class="result-context" id="regionCount">4 个待确认选区</span></div>
+            <div class="frame-strip" id="frameStrip"></div>
+          </section>
+          <nav class="mobile-split-dock" aria-label="移动端拆分工具">
+            <button id="mobileImportButton" aria-label="导入贴图" data-tip="导入贴图"><i data-lucide="image-up" aria-hidden="true"></i><span>导入</span></button>
+            <button id="mobileAutoDetect" aria-label="智能识别" data-tip="智能识别"><i data-lucide="scan-search" aria-hidden="true"></i><span>智能</span></button>
+            <button id="mobileGridDetect" aria-label="网格识别" data-tip="网格识别"><i data-lucide="grid-3x3" aria-hidden="true"></i><span>网格</span></button>
+            <button id="mobileClearRegions" aria-label="清空选区" data-tip="清空选区"><i data-lucide="square-x" aria-hidden="true"></i><span>清空</span></button>
+            <button id="mobileUndoSplit" aria-label="撤销选区操作" data-tip="撤销"><i data-lucide="undo-2" aria-hidden="true"></i><span>撤销</span></button>
+            <button id="mobileRedoSplit" aria-label="重做选区操作" data-tip="重做"><i data-lucide="redo-2" aria-hidden="true"></i><span>重做</span></button>
+            <button id="splitAllMobileDock" aria-label="全部拆出" data-tip="全部拆出"><i data-lucide="scissors" aria-hidden="true"></i><span>拆出</span></button>
+            <button id="mobilePanCanvas" aria-label="移动视角" data-tip="移动视角"><i data-lucide="hand" aria-hidden="true"></i><span>移动</span></button>
+            <button id="mobileAlignmentButton" aria-label="基准对齐" data-tip="基准对齐"><i data-lucide="crosshair" aria-hidden="true"></i><span>对齐</span></button>
+            <label class="mobile-scale"><span class="mobile-scale-label">倍率</span><select id="mobilePngScale" aria-label="PNG 像素倍率"><option value="1">X1</option><option value="2">X2</option><option value="4">X4</option><option value="8">X8</option><option value="16">X16</option></select></label>
+            <button id="mobileExportZip" aria-label="导出 PNG 素材包" data-tip="导出 PNG 素材包"><i data-lucide="archive" aria-hidden="true"></i><span>打包</span></button>
+          </nav>
+        </section>
+
+        <aside class="right-panel" aria-label="选区属性与导出">
+          <section class="inspector-section current-frame">
+            <div class="panel-heading"><span id="inspectorTitle">选区属性</span><span id="itemBadge" class="frame-badge">01 / 04</span></div>
+            <div class="frame-preview-wrap"><canvas id="selectionPreview" width="144" height="144" aria-label="当前选区预览"></canvas></div>
+            <label class="form-label">名称<input id="itemName" type="text" value="frame_01" /></label>
+            <div id="regionFields" class="coordinate-grid"><label>左<input id="regionX" type="number" min="0" /></label><label>上<input id="regionY" type="number" min="0" /></label><label>宽<input id="regionWidth" type="number" min="1" /></label><label>高<input id="regionHeight" type="number" min="1" /></label></div>
+            <p class="inspector-note" id="itemMeta">智能识别候选框，拆分前可继续调整。</p>
+          </section>
+
+          <section class="inspector-section export-section">
+            <div class="panel-heading"><span>交付素材</span><span class="key-hint">E</span></div>
+            <label class="scale-select">像素倍率<select id="pngScale" aria-label="PNG 导出像素倍率"><option value="1">X1 原始大小</option><option value="2">X2 像素放大</option><option value="4">X4 像素放大</option><option value="8">X8 像素放大</option><option value="16">X16 像素放大</option></select></label>
+            <button class="primary-export" id="splitAllButton"><i data-lucide="scissors" aria-hidden="true"></i><span><b>全部拆出</b><small>按当前选区创建透明 PNG 帧</small></span><i data-lucide="arrow-right" aria-hidden="true"></i></button>
+            <button class="export-action" id="editFrameButton"><i data-lucide="pencil-ruler" aria-hidden="true"></i><span><b>编辑贴图</b><small>绘制、修改独立帧与色卡</small></span><i data-lucide="arrow-right" aria-hidden="true"></i></button>
+            <button class="export-action" id="pngExportButton"><i data-lucide="image-down" aria-hidden="true"></i><span><b>透明 PNG</b><small>导出选中的独立帧</small></span><i data-lucide="download" aria-hidden="true"></i></button>
+            <button class="export-action" id="zipExportButton"><i data-lucide="archive" aria-hidden="true"></i><span><b>PNG 素材包</b><small>按自定义名称压缩为 ZIP</small></span><i data-lucide="download" aria-hidden="true"></i></button>
+            <button class="gif-entry" id="goGifSideButton"><i data-lucide="film" aria-hidden="true"></i><span><b>GIF 动作</b><small>排序并设置逐帧时长</small></span><i data-lucide="arrow-down-to-line" aria-hidden="true"></i></button>
+          </section>
+          <section class="inspector-section alignment-section">
+            <div class="panel-heading"><span>基准对齐（可选）</span><span class="key-hint">画布</span></div>
+            <p class="inspector-note" id="alignmentStatus">不设置基准时按原选区尺寸切割。选中完整立绘后可填写任意基准画布大小。</p>
+            <div class="coordinate-grid"><label>画布宽<input id="alignmentWidth" type="number" min="1" max="4096" value="240" /></label><label>画布高<input id="alignmentHeight" type="number" min="1" max="4096" value="240" /></label></div>
+            <button class="subtle-action" id="setAlignmentReference">设当前选区为基准</button>
+            <button class="subtle-action" id="splitAlignedFrames">按基准对齐并拆出</button>
+          </section>
+          <p class="right-footer">选区仅引用原贴图。修改、删减或重新识别不会覆盖导入的完整贴图。</p>
+        </aside>
+      </main>
+    </div>
+    <input id="imageInput" type="file" accept="image/png,image/webp,image/gif,image/jpeg" hidden />
+    <input id="projectInput" type="file" accept=".pdec,application/json" hidden />
+    <canvas id="sourceCanvas" hidden></canvas>
+    <div id="projectStartDialog" class="project-dialog project-start-dialog" role="dialog" aria-modal="true" aria-labelledby="projectStartTitle">
+      <section class="project-dialog-panel">
+        <i data-lucide="layers-3" aria-hidden="true"></i>
+        <h1 id="projectStartTitle">开始工程</h1>
+        <p>新建透明画布，或继续一个已保存的 Pixel Decomposer 工程。</p>
+        <div class="project-dialog-actions project-start-actions">
+          <button class="command-button primary" id="startNewProject"><i data-lucide="file-plus-2" aria-hidden="true"></i><span>新建工程</span></button>
+          <button class="command-button" onclick="goToGif()"><span>直接制作 GIF</span></button>
+          <button class="command-button" id="startOpenProject"><i data-lucide="folder-open" aria-hidden="true"></i><span>打开工程</span></button>
+        </div>
+      </section>
+    </div>
+    <div id="canvasSetupDialog" class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="canvasSetupTitle" hidden>
+      <section class="project-dialog-panel">
+        <i data-lucide="ruler" aria-hidden="true"></i>
+        <h1 id="canvasSetupTitle">新建透明画布</h1>
+        <p>先设定画布尺寸，或直接导入贴图并按原图尺寸自动创建画布。</p>
+        <div class="canvas-size-fields"><label>宽<input id="newCanvasWidth" type="number" min="1" max="4096" value="64" inputmode="numeric" /></label><label>高<input id="newCanvasHeight" type="number" min="1" max="4096" value="64" inputmode="numeric" /></label></div>
+        <div class="project-dialog-actions">
+          <button class="command-button primary" id="createCanvasProject"><i data-lucide="pencil" aria-hidden="true"></i><span>创建并进入绘制</span></button>
+          <button class="command-button" id="createCanvasAndDraw"><i data-lucide="scissors" aria-hidden="true"></i><span>仅创建并留在拆分</span></button>
+          <button class="command-button" id="importIntoNewProject"><i data-lucide="image-up" aria-hidden="true"></i><span>直接导入贴图</span></button>
+          <button class="command-button" id="cancelCanvasSetup"><span>返回</span></button>
+        </div>
+      </section>
+    </div>
+    <div id="alignmentDialog" class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="alignmentDialogTitle" hidden>
+      <section class="project-dialog-panel">
+        <i data-lucide="crosshair" aria-hidden="true"></i>
+        <h1 id="alignmentDialogTitle">基准对齐</h1>
+        <p>这是可选功能：不设置时仍按原选区尺寸切割。选中完整立绘后填写自己的基准画布大小，其他区域会自动对齐到这个基准画布中心。</p>
+        <div class="canvas-size-fields"><label>画布宽<input id="mobileAlignmentWidth" type="number" min="1" max="4096" value="240" inputmode="numeric" /></label><label>画布高<input id="mobileAlignmentHeight" type="number" min="1" max="4096" value="240" inputmode="numeric" /></label></div>
+        <div class="project-dialog-actions"><button class="command-button" id="cancelAlignmentDialog"><span>取消</span></button><button class="command-button" id="mobileSetAlignmentReference"><span>设为基准</span></button><button class="command-button primary" id="mobileSplitAlignedFrames"><i data-lucide="scissors" aria-hidden="true"></i><span>对齐并拆出</span></button></div>
+      </section>
+    </div>
+    <div id="projectCloseDialog" class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="projectCloseTitle" hidden>
+      <section class="project-dialog-panel">
+        <i data-lucide="triangle-alert" aria-hidden="true"></i>
+        <h1 id="projectCloseTitle">工程尚未保存</h1>
+        <p>关闭后，未保存的画布、选区、独立帧和色卡修改将永久丢失。</p>
+        <div class="project-dialog-actions">
+          <button class="command-button" data-project-close-cancel><span>取消</span></button>
+          <button class="command-button danger" data-project-close-discard><span>不保存并关闭</span></button>
+          <button class="command-button primary" data-project-close-save><i data-lucide="save" aria-hidden="true"></i><span>保存并关闭</span></button>
+        </div>
+      </section>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

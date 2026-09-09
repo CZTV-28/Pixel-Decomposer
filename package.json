@@ -1,0 +1,47 @@
+{
+  "name": "pixel-decomposer",
+  "version": "0.1.4",
+  "description": "Pixel sprite splitting, drawing, and GIF animation workspace.",
+  "author": "Pixel Decomposer",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build:web": "node scripts/build-web.cjs",
+    "start": "npm run build:web && electron .",
+    "sync:android": "npm run build:web && cap sync android",
+    "build:win": "npm run build:web && electron-builder --win nsis --x64",
+    "build:apk": "npm run sync:android && cd android && gradlew.bat assembleRelease"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0",
+    "gif.js": "^0.2.0",
+    "jszip": "^3.10.1",
+    "lucide": "^0.468.0"
+  },
+  "build": {
+    "appId": "cn.pixeldecomposer.app",
+    "productName": "Pixel Decomposer",
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "www/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "allowScripts": {}
+}

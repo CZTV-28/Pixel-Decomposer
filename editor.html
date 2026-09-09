@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#151918" />
+    <title>Pixel Decomposer - 像素绘制</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
+    <script defer src="i18n.js"></script>
+    <script defer src="workspace-transfer.js"></script>
+    <script defer src="project-lifecycle.js"></script>
+    <script defer src="editor.js"></script>
+    <script defer src="paint-tools.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="appbar">
+        <a class="brand" href="index.html" aria-label="返回贴图拆分"><span class="brand-mark" aria-hidden="true"><b></b><b></b><b></b><b></b></span><span>Pixel<br /><em>Decomposer</em></span></a>
+        <div class="project-name-wrap"><button class="command-button" id="backToSplitButton"><i data-lucide="arrow-left" aria-hidden="true"></i><span>贴图拆分</span></button><input id="editorProjectName" class="project-name" value="未命名像素工程" aria-label="工程名称" /></div>
+        <div class="appbar-actions"><button class="command-button" id="openEditorProject"><i data-lucide="folder-open" aria-hidden="true"></i><span>打开工程</span></button><button class="command-button" id="saveEditorProject"><i data-lucide="save" aria-hidden="true"></i><span>保存工程</span></button><button class="command-button" id="openSettingsButton" aria-label="设置" data-tip="设置"><i data-lucide="settings" aria-hidden="true"></i><span>设置</span></button><button class="command-button primary" id="goGifFromEditor"><i data-lucide="film" aria-hidden="true"></i><span>GIF 动作</span></button></div>
+      </header>
+      <main class="paint-shell">
+        <aside class="paint-tools" aria-label="像素绘制工具">
+          <section class="panel-section">
+            <div class="panel-heading"><span>像素绘制</span><span class="key-hint">D</span></div>
+            <div class="paint-tool-grid" role="toolbar" aria-label="绘制工具">
+              <button class="paint-tool active" data-tool="pencil" aria-pressed="true"><i data-lucide="pencil" aria-hidden="true"></i><span>铅笔</span></button>
+              <button class="paint-tool" data-tool="eraser" aria-pressed="false"><i data-lucide="eraser" aria-hidden="true"></i><span>橡皮</span></button>
+              <button class="paint-tool" data-tool="fill" aria-pressed="false"><i data-lucide="paint-bucket" aria-hidden="true"></i><span>填充</span></button>
+              <button class="paint-tool" data-tool="eyedropper" aria-pressed="false"><i data-lucide="pipette" aria-hidden="true"></i><span>取色</span></button>
+            </div>
+          </section>
+          <section class="panel-section">
+            <div class="paint-settings-row"><label>颜色<input id="paintColor" type="color" value="#2dd5c3" /></label><label class="hex-color-field">HEX<input id="paintHex" type="text" value="#2dd5c3" maxlength="7" spellcheck="false" autocomplete="off" /></label><label class="brush-control">笔触 <output id="brushReadout">1 px</output><input id="brushSize" type="range" min="1" max="16" value="1" /></label></div>
+          </section>
+          <section class="panel-section palette-section">
+            <div class="panel-heading"><span>自定义色卡</span><span id="paletteCount" class="frame-badge">0 / 48</span></div>
+            <div class="palette-actions"><button class="icon-button" id="addPaletteColor" aria-label="保存当前颜色到色卡" data-tip="保存当前颜色"><i data-lucide="plus" aria-hidden="true"></i></button><button class="icon-button" id="removePaletteColor" aria-label="移除选中的色卡颜色" data-tip="移除选中颜色"><i data-lucide="trash-2" aria-hidden="true"></i></button><button class="icon-button" id="resetPaletteColor" aria-label="恢复默认色卡" data-tip="恢复默认色卡"><i data-lucide="rotate-ccw" aria-hidden="true"></i></button><button class="icon-button" id="importPaletteColor" aria-label="导入色卡" data-tip="导入色卡"><i data-lucide="folder-up" aria-hidden="true"></i></button><button class="icon-button" id="exportPaletteColor" aria-label="导出色卡" data-tip="导出色卡"><i data-lucide="download" aria-hidden="true"></i></button><span>自动记忆，最多 48 色</span></div>
+            <div class="palette-grid" id="paletteGrid"></div>
+          </section>
+        </aside>
+        <section class="paint-editor" aria-label="像素帧编辑画布">
+          <div class="workspace-toolbar"><div class="toolbar-left"><button class="icon-button" id="paintPanButton" aria-label="移动视角" data-tip="移动视角" aria-pressed="false"><i data-lucide="hand" aria-hidden="true"></i></button><button class="icon-button" id="undoPaint" aria-label="撤销绘制或画布尺寸" data-tip="撤销绘制"><i data-lucide="undo-2" aria-hidden="true"></i></button><button class="icon-button" id="redoPaint" aria-label="重做绘制或画布尺寸" data-tip="重做绘制"><i data-lucide="redo-2" aria-hidden="true"></i></button><span class="toolbar-divider" aria-hidden="true"></span><button class="icon-button" id="paintZoomOut" aria-label="缩小画布" data-tip="缩小"><i data-lucide="minus" aria-hidden="true"></i></button><label class="zoom-field" aria-label="画布缩放倍率"><input id="paintZoomReset" type="number" min="200" max="2400" step="1" value="800" inputmode="decimal" /><span>%</span></label><button class="icon-button" id="paintZoomIn" aria-label="放大画布" data-tip="放大"><i data-lucide="plus" aria-hidden="true"></i></button></div><div class="toolbar-right"><i data-lucide="mouse-pointer-2" aria-hidden="true"></i><span id="paintPointer">x: -- y: --</span></div></div>
+          <div class="workspace"><div class="workspace-guides horizontal"></div><div class="workspace-guides vertical"></div><div class="canvas-stage paint-stage" id="paintStage" tabindex="0" aria-label="像素画布"><canvas id="paintCanvas" width="64" height="64"></canvas></div></div>
+          <section class="results-panel paint-timeline"><div class="results-header"><div><span class="panel-kicker">独立帧</span><strong id="paintFrameTitle">0 个帧</strong></div><div class="timeline-actions"><button class="icon-button" id="newPaintFrame" aria-label="新建透明帧" data-tip="新建透明帧"><i data-lucide="file-plus-2" aria-hidden="true"></i></button><button class="icon-button" id="duplicatePaintFrame" aria-label="复制当前帧" data-tip="复制当前帧"><i data-lucide="copy" aria-hidden="true"></i></button><button class="icon-button" id="toggleFrameSelection" aria-label="切换多选帧" aria-pressed="false" data-tip="多选帧"><i data-lucide="list-checks" aria-hidden="true"></i></button><button class="icon-button" id="deletePaintFrame" aria-label="删除选中帧" data-tip="删除选中帧"><i data-lucide="trash-2" aria-hidden="true"></i></button><button class="icon-button" id="undoFrameAction" aria-label="撤销帧操作" data-tip="撤销帧操作"><i data-lucide="undo-2" aria-hidden="true"></i></button><button class="icon-button" id="redoFrameAction" aria-label="重做帧操作" data-tip="重做帧操作"><i data-lucide="redo-2" aria-hidden="true"></i></button><button class="icon-button mobile-paint-export" id="exportEditedPngMobile" aria-label="导出当前透明 PNG" data-tip="导出透明 PNG"><i data-lucide="image-down" aria-hidden="true"></i></button></div></div><div class="frame-strip" id="paintFrameStrip"></div></section>
+          <nav class="mobile-paint-dock" aria-label="移动端绘制工具" data-mobile-help="点击工具开始操作；双指拖动移动画布，双指捏合缩放；点击色卡打开颜色面板">
+            <button class="mobile-paint-tool active" data-tool="pencil" aria-label="铅笔" aria-pressed="true" data-tip="铅笔"><i data-lucide="pencil" aria-hidden="true"></i><span>铅笔</span></button>
+            <button class="mobile-paint-tool" data-tool="eraser" aria-label="橡皮" aria-pressed="false" data-tip="橡皮"><i data-lucide="eraser" aria-hidden="true"></i><span>橡皮</span></button>
+            <button class="mobile-paint-tool" data-tool="fill" aria-label="填充" aria-pressed="false" data-tip="填充"><i data-lucide="paint-bucket" aria-hidden="true"></i><span>填充</span></button>
+            <button class="mobile-paint-tool" data-tool="eyedropper" aria-label="取色" aria-pressed="false" data-tip="取色"><i data-lucide="pipette" aria-hidden="true"></i><span>取色</span></button>
+            <button id="mobilePaletteToggle" aria-label="打开色卡" aria-expanded="false" data-tip="色卡"><i data-lucide="palette" aria-hidden="true"></i><span>色卡</span></button>
+            <button id="mobilePaintUndo" aria-label="撤销" data-tip="撤销"><i data-lucide="undo-2" aria-hidden="true"></i><span>撤销</span></button>
+            <button id="mobilePaintRedo" aria-label="重做" data-tip="重做"><i data-lucide="redo-2" aria-hidden="true"></i><span>重做</span></button>
+            <button id="mobilePaintExport" aria-label="导出透明 PNG" data-tip="导出透明 PNG"><i data-lucide="image-down" aria-hidden="true"></i><span>导出</span></button>
+            <button id="mobilePaintPan" aria-label="移动视角" data-tip="移动视角" aria-pressed="false"><i data-lucide="hand" aria-hidden="true"></i><span>移动</span></button>
+          </nav>
+          <section class="mobile-palette-drawer" id="mobilePaletteDrawer" aria-label="移动端色卡" hidden>
+            <div class="mobile-palette-header"><label>颜色<input id="mobilePaintColor" type="color" value="#2dd5c3" /></label><input id="mobilePaintHex" type="text" value="#2dd5c3" maxlength="7" spellcheck="false" autocomplete="off" aria-label="HEX 颜色" /><span id="mobilePaletteCount">0 / 48</span><button class="icon-button" id="addMobilePaletteColor" aria-label="保存当前颜色" data-tip="保存当前颜色"><i data-lucide="plus" aria-hidden="true"></i></button><button class="icon-button" id="removeMobilePaletteColor" aria-label="删除选中颜色" data-tip="删除选中颜色"><i data-lucide="trash-2" aria-hidden="true"></i></button><button class="icon-button" id="resetMobilePaletteColor" aria-label="恢复默认色卡" data-tip="恢复默认色卡"><i data-lucide="rotate-ccw" aria-hidden="true"></i></button><button class="icon-button" id="mobileImportPaletteColor" aria-label="导入色卡" data-tip="导入色卡"><i data-lucide="folder-up" aria-hidden="true"></i></button><button class="icon-button" id="mobileExportPaletteColor" aria-label="导出色卡" data-tip="导出色卡"><i data-lucide="download" aria-hidden="true"></i></button></div>
+            <div class="palette-grid mobile-palette-grid" id="mobilePaletteGrid"></div>
+          </section>
+        </section>
+        <aside class="paint-inspector" aria-label="当前帧属性">
+          <section class="inspector-section"><div class="panel-heading"><span>当前帧</span><span id="paintFrameBadge" class="frame-badge">01 / 01</span></div><div class="frame-preview-wrap"><canvas id="paintPreview" width="144" height="144" aria-label="当前帧预览"></canvas></div><label class="form-label">帧名称<input id="paintFrameName" type="text" value="frame_01" /></label><div class="coordinate-grid"><label>宽<input id="paintWidth" type="number" min="1" max="4096" /></label><label>高<input id="paintHeight" type="number" min="1" max="4096" /></label></div><button class="subtle-action" id="resizePaintFrame">调整画布</button></section>
+          <section class="inspector-section"><div class="panel-heading"><span>交付</span><span class="key-hint">PNG</span></div><button class="export-action" id="exportEditedPng"><i data-lucide="image-down" aria-hidden="true"></i><span><b>透明 PNG</b><small>导出当前编辑帧</small></span><i data-lucide="download" aria-hidden="true"></i></button><button class="gif-entry" id="goGifSideEditor"><i data-lucide="film" aria-hidden="true"></i><span><b>GIF 动作</b><small>继续编排播放顺序与时长</small></span><i data-lucide="arrow-right" aria-hidden="true"></i></button></section>
+        </aside>
+      </main>
+    </div>
+    <input id="editorProjectInput" type="file" accept=".pdec,application/json" hidden />
+    <input id="paletteInput" type="file" accept=".pdpalette.json,application/json" hidden />
+    <div id="projectCloseDialog" class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="projectCloseTitle" hidden>
+      <section class="project-dialog-panel">
+        <i data-lucide="triangle-alert" aria-hidden="true"></i>
+        <h1 id="projectCloseTitle">工程尚未保存</h1>
+        <p>关闭后，未保存的绘制、帧排序、画布尺寸和色卡修改将永久丢失。</p>
+        <div class="project-dialog-actions"><button class="command-button" data-project-close-cancel><span>取消</span></button><button class="command-button danger" data-project-close-discard><span>不保存并关闭</span></button><button class="command-button primary" data-project-close-save><i data-lucide="save" aria-hidden="true"></i><span>保存并关闭</span></button></div>
+      </section>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
