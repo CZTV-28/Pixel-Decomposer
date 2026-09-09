@@ -1,6 +1,30 @@
-# Pixel Decomposer
+# Pixel Decomposer · 像素分解
 
-面向 Windows 与 Android 的像素素材拆分、绘制与 GIF 制作工具。当前版本：**V0.1.4**。
+**简体中文** · [日本語](README.ja.md) · [English](README.en.md)
+
+还在为分图担心吗？还在为找不到人帮忙而发愁吗？
+
+让 **Pixel Decomposer — 像素分解** 帮你处理繁琐的分图工作！从成套游戏贴图中定位并拆出人物、动作、场景等素材，支持一键识别、导出和打包；遇到细节，也可以手动调整选区，精修后再导出。
+
+你可以保存并分享包含素材的工程文件，让其他成员接着加工；也可以使用附带的画板简单修改贴图，再选取需要的帧，或导入自己的帧画面，制作 GIF 动画。
+
+少一些重复操作，多一些创作时间。抓紧来试试吧！
+
+**当前版本：V0.1.4** · [下载安装包](https://github.com/CZTV-28/Pixel-Decomposer/releases/latest)
+
+## 支持平台
+
+目前支持 **Windows 电脑**和 **Android 安卓手机**，提供 Windows 安装版 EXE 与安卓 APK。
+
+iOS、macOS 和 Linux 暂未支持，后续计划逐步开放，具体时间待定。
+
+## 联系与反馈
+
+使用中遇到问题，或希望增加新功能，欢迎随时联系：
+
+- 邮箱：[cztv.offical@gmail.com](mailto:cztv.offical@gmail.com)
+- Discord：`cztv`
+- [提交问题或功能建议](https://github.com/CZTV-28/Pixel-Decomposer/issues)
 
 ## 功能
 
