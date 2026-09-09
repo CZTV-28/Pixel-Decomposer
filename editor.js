@@ -78,7 +78,7 @@ function bindEvents() {
   stage.addEventListener("pointerup", endPaint);
   stage.addEventListener("pointercancel", endPaint);
   stage.addEventListener("pointerleave", (event) => { if (state.drawing) endPaint(event); });
-  stage.addEventListener("wheel", zoomPaintWithWheel, { passive: false });
+  stage.closest(".workspace").addEventListener("wheel", zoomPaintWithWheel, { passive: false });
   document.addEventListener("keydown", (event) => { if (event.target.matches("input")) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); } if (event.key.toLowerCase() === "b") setTool("pencil"); if (event.key.toLowerCase() === "e") setTool("eraser"); if (event.key.toLowerCase() === "g") setTool("fill"); if (event.key.toLowerCase() === "i") setTool("eyedropper"); });
 }
 
@@ -275,7 +275,7 @@ function beginPaint(event) {
   if (event.button !== 0 || !currentFrame()) return;
   const point = canvasPoint(event);
   if (event.pointerType === "touch") {
-    state.touchPoints.set(event.pointerId, point);
+    state.touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (state.touchPoints.size === 2) {
       if (state.drawing) { state.drawing = false; state.lastPoint = null; commitCanvas(); }
       state.panning = null;
@@ -292,7 +292,7 @@ function beginPaint(event) {
   if (state.tool === "fill") { floodFill(point); commitCanvas(); return; }
   state.drawing = true; state.lastPoint = point; paintPoint(point.x, point.y); event.preventDefault();
 }
-function paintMove(event) { const point = canvasPoint(event); if (event.pointerType === "touch") { state.touchPoints.set(event.pointerId, point); if (state.gesture) { updatePaintGesture(); event.preventDefault(); return; } } if (state.panning?.pointerId === event.pointerId) { updatePaintPan(event); event.preventDefault(); return; } if (!state.drawing) return; drawLine(state.lastPoint, point); state.lastPoint = point; event.preventDefault(); }
+function paintMove(event) { const point = canvasPoint(event); if (event.pointerType === "touch") { state.touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY }); if (state.gesture) { updatePaintGesture(); event.preventDefault(); return; } } if (state.panning?.pointerId === event.pointerId) { updatePaintPan(event); event.preventDefault(); return; } if (!state.drawing) return; drawLine(state.lastPoint, point); state.lastPoint = point; event.preventDefault(); }
 function endPaint(event) { if (event.pointerType === "touch") { state.touchPoints.delete(event.pointerId); if (state.gesture || state.touchPoints.size) { state.gesture = null; state.drawing = false; state.lastPoint = null; releasePaintPointer(event.pointerId); return; } } if (state.panning?.pointerId === event.pointerId) { state.panning = null; $("#paintStage").classList.remove("is-panning-active"); releasePaintPointer(event.pointerId); return; } if (!state.drawing) { releasePaintPointer(event.pointerId); return; } state.drawing = false; state.lastPoint = null; commitCanvas(); releasePaintPointer(event.pointerId); }
 function showPointer(event) { const point = canvasPoint(event); $("#paintPointer").textContent = `x: ${String(point.x).padStart(2, "0")}  y: ${String(point.y).padStart(2, "0")}`; }
 function paintPoint(x, y) { const offset = Math.floor(state.brush / 2); if (state.tool === "eraser") paintContext.clearRect(x - offset, y - offset, state.brush, state.brush); else { paintContext.fillStyle = state.color; paintContext.fillRect(x - offset, y - offset, state.brush, state.brush); } }
@@ -379,40 +379,76 @@ function extractPaletteColors(palette) {
   return normalizedPaletteColors(palette.colors || palette.palette || palette.swatches || palette.values || []);
 }
 
-function setZoom(value, animated = false) {
-  state.zoomTarget = Math.max(2, Math.min(24, value));
+const paintView = { x: null, y: null, anchor: null };
+function zoomAnchor(clientX, clientY) {
+  const workspace = $("#paintStage").closest(".workspace"), area = workspace.getBoundingClientRect(), box = paintCanvas.getBoundingClientRect();
+  const x = clientX ?? area.left + area.width / 2, y = clientY ?? area.top + area.height / 2;
+  return { x: x - area.left, y: y - area.top, pixelX: (x - box.left) / state.zoom, pixelY: (y - box.top) / state.zoom };
+}
+function setZoom(value, animated = false, anchor = null) {
+  if (!Number.isFinite(value)) return;
+  paintView.anchor = anchor || zoomAnchor();
+  state.zoomTarget = Math.max(.25, Math.min(24, value));
   if (!animated) {
     if (state.zoomFrame) window.cancelAnimationFrame(state.zoomFrame);
-    state.zoomFrame = 0;
-    state.zoom = state.zoomTarget;
-    applyZoom();
-    return;
+    state.zoomFrame = 0; state.zoom = state.zoomTarget; applyZoom(); paintView.anchor = null; return;
   }
   if (state.zoomFrame) return;
   const animate = () => {
     const remaining = state.zoomTarget - state.zoom;
     if (Math.abs(remaining) < .004) {
-      state.zoom = state.zoomTarget;
-      state.zoomFrame = 0;
-      applyZoom();
-      return;
+      state.zoom = state.zoomTarget; state.zoomFrame = 0; applyZoom(); paintView.anchor = null; return;
     }
-    state.zoom += remaining * .28;
-    applyZoom();
+    state.zoom += remaining * .28; applyZoom();
     state.zoomFrame = window.requestAnimationFrame(animate);
   };
   state.zoomFrame = window.requestAnimationFrame(animate);
 }
-function applyZoom() { paintCanvas.style.width = `${paintCanvas.width * state.zoom}px`; paintCanvas.style.height = `${paintCanvas.height * state.zoom}px`; $("#paintStage").style.width = paintCanvas.style.width; $("#paintStage").style.height = paintCanvas.style.height; $("#paintZoomReset").value = String(Math.round(state.zoom * 100)); }
-function updatePaintZoomFromField(event) { setZoom((Number(event.currentTarget.value) || 800) / 100); }
-function beginPaintGesture() { const [first, second] = [...state.touchPoints.values()]; const workspace = $("#paintStage").closest(".workspace"); state.gesture = { distance: pointDistance(first, second), zoom: state.zoomTarget, center: pointCenter(first, second), scrollLeft: workspace.scrollLeft, scrollTop: workspace.scrollTop }; }
-function updatePaintGesture() { const [first, second] = [...state.touchPoints.values()]; if (!first || !second || !state.gesture) return; const center = pointCenter(first, second); const nextZoom = state.gesture.zoom * Math.pow(pointDistance(first, second) / state.gesture.distance, .45); setZoom(nextZoom, true); const workspace = $("#paintStage").closest(".workspace"); workspace.scrollLeft = state.gesture.scrollLeft - (center.x - state.gesture.center.x) * state.zoomTarget; workspace.scrollTop = state.gesture.scrollTop - (center.y - state.gesture.center.y) * state.zoomTarget; }
+function applyZoom() {
+  const stage = $("#paintStage"), workspace = stage.closest(".workspace");
+  const width = paintCanvas.width * state.zoom, height = paintCanvas.height * state.zoom;
+  if (paintView.x === null) { paintView.x = (workspace.clientWidth - width) / 2; paintView.y = (workspace.clientHeight - height) / 2; }
+  if (paintView.anchor) {
+    paintView.x = paintView.anchor.x - paintView.anchor.pixelX * state.zoom;
+    paintView.y = paintView.anchor.y - paintView.anchor.pixelY * state.zoom;
+  }
+  paintCanvas.style.width = stage.style.width = width + "px";
+  paintCanvas.style.height = stage.style.height = height + "px";
+  stage.style.left = paintView.x + "px"; stage.style.top = paintView.y + "px";
+  stage.style.backgroundSize = (2 * state.zoom) + "px " + (2 * state.zoom) + "px";
+  stage.style.backgroundPosition = `0 0, 0 ${state.zoom}px, ${state.zoom}px ${-state.zoom}px, ${-state.zoom}px 0`;
+  stage.style.setProperty("--pixel-x", state.zoom + "px"); stage.style.setProperty("--pixel-y", state.zoom + "px");
+  $("#paintZoomReset").value = String(Math.round(state.zoom * 100));
+}
+function updatePaintZoomFromField(event) { setZoom((Number(event.currentTarget.value) || 100) / 100); }
+function beginPaintGesture() {
+  const [first, second] = [...state.touchPoints.values()], center = pointCenter(first, second);
+  state.gesture = { distance: pointDistance(first, second), zoom: state.zoom, anchor: zoomAnchor(center.x, center.y) };
+}
+function updatePaintGesture() {
+  const [first, second] = [...state.touchPoints.values()]; if (!first || !second || !state.gesture) return;
+  const center = pointCenter(first, second), area = $("#paintStage").closest(".workspace").getBoundingClientRect();
+  const nextZoom = state.gesture.zoom * Math.pow(pointDistance(first, second) / state.gesture.distance, .45);
+  setZoom(nextZoom, true, { ...state.gesture.anchor, x: center.x - area.left, y: center.y - area.top });
+}
 function pointDistance(first, second) { return Math.hypot(second.x - first.x, second.y - first.y) || 1; }
 function pointCenter(first, second) { return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }; }
-function beginPaintPan(event) { const workspace = $("#paintStage").closest(".workspace"); state.panning = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: workspace.scrollLeft, scrollTop: workspace.scrollTop }; $("#paintStage").setPointerCapture(event.pointerId); $("#paintStage").classList.add("is-panning-active"); event.preventDefault(); }
-function updatePaintPan(event) { const pan = state.panning; if (!pan) return; const workspace = $("#paintStage").closest(".workspace"); workspace.scrollLeft = pan.scrollLeft - (event.clientX - pan.x); workspace.scrollTop = pan.scrollTop - (event.clientY - pan.y); }
+function beginPaintPan(event) {
+  if (state.zoomFrame) { cancelAnimationFrame(state.zoomFrame); state.zoomFrame = 0; state.zoomTarget = state.zoom; }
+  paintView.anchor = null;
+  state.panning = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: paintView.x, top: paintView.y };
+  $("#paintStage").setPointerCapture(event.pointerId); $("#paintStage").classList.add("is-panning-active"); event.preventDefault();
+}
+function updatePaintPan(event) {
+  const pan = state.panning; if (!pan) return;
+  paintView.x = pan.left + event.clientX - pan.x; paintView.y = pan.top + event.clientY - pan.y; applyZoom();
+}
 function releasePaintPointer(pointerId) { const stage = $("#paintStage"); if (stage.hasPointerCapture(pointerId)) stage.releasePointerCapture(pointerId); }
-function zoomPaintWithWheel(event) { if (!event.deltaY) return; event.preventDefault(); setZoom(state.zoomTarget * Math.exp(-normalizedWheelDelta(event) * .00022), true); }
+function zoomPaintWithWheel(event) {
+  if (!event.deltaY || event.target.closest("button,input,select")) return;
+  event.preventDefault();
+  setZoom(state.zoomTarget * Math.exp(-normalizedWheelDelta(event) * .00022), true, zoomAnchor(event.clientX, event.clientY));
+}
 function normalizedWheelDelta(event) { const unit = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? 240 : 1; return Math.max(-120, Math.min(120, event.deltaY * unit)); }
 function resizeFrame() { const frame = currentFrame(); const width = Math.max(1, Math.min(4096, Number($("#paintWidth").value) || frame.width)), height = Math.max(1, Math.min(4096, Number($("#paintHeight").value) || frame.height)); if (width === frame.width && height === frame.height) return; pushHistory(); const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height; const context = canvas.getContext("2d"); context.imageSmoothingEnabled = false; context.drawImage(paintCanvas, 0, 0); frame.width = width; frame.height = height; frame.data = canvas.toDataURL("image/png"); markDirty(); refreshUI(); }
 function frameActionSnapshot() { return { frames: state.frames.map(({ id, name, data, width, height }) => ({ id, name, data, width, height })), selected: state.selected, selectedFrames: [...state.selectedFrames], multiSelecting: state.multiSelecting }; }

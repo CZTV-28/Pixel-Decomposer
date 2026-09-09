@@ -10,7 +10,41 @@
   <div class="studio-actions"><label>当前时间 <input id="at" type="number" min="0" step="0.01" value="0"></label><button id="aPlay">播放 / 停止</button><button id="aKey">记录 / 更新关键帧</button><button id="aDeleteKey">删除当前时间关键帧</button><button id="aPath">手绘运动路径：关</button><button id="aClearPath">清除运动路径</button></div>
   <div class="studio-work"><div class="studio-board"><canvas id="aCanvas" width="240" height="240"></canvas></div><div><label>图层（后面的在上层）<select id="aLayers" size="5"></select></label><div class="studio-actions"><button id="aCopy">复制图层</button><button id="aDelete">删除图层</button><button id="aUp">上移一层</button><button id="aDown">下移一层</button></div><div class="studio-actions"><label>X <input id="ax" type="number" value="0"></label><label>Y <input id="ay" type="number" value="0"></label><label>旋转角度 <input id="ar" type="number" value="0"></label><label>缩放 <input id="as" type="number" min="0.01" step="0.1" value="1"></label><label>不透明度 <input id="ao" type="number" min="0" max="1" step="0.1" value="1"></label></div><label>关键帧插值 <select id="ae"><option value="linear">线性</option><option value="ease">平滑缓入缓出</option><option value="sine">正弦缓动</option><option value="hold">保持（表情切换）</option><option value="bezier">自定义三次贝塞尔</option></select></label><div class="studio-actions"><label>控制点 1 X<input id="ab1" type="number" min="0" max="1" step="0.01" value="0.25"></label><label>控制点 1 Y<input id="ab2" type="number" step="0.01" value="0.1"></label><label>控制点 2 X<input id="ab3" type="number" min="0" max="1" step="0.01" value="0.25"></label><label>控制点 2 Y<input id="ab4" type="number" step="0.01" value="1"></label></div><p id="aKeys"></p></div></div>
   <p>手绘路径作用于当前图层中心，在整段动作内播放；位置路径优先于位置关键帧。旋转、缩放、不透明度仍由关键帧控制。画布外内容会被裁切。</p><div class="studio-actions"><button id="aBake">生成并追加到 GIF 时间线</button><button id="aClose">完成，返回 GIF</button></div>`;
+  // Keep the existing controls and handlers, but group them around the user's task.
+  const take=id=>panel.querySelector('#'+id),field=id=>take(id).closest('label');
+  const board=panel.querySelector('.studio-board');
+  const heading=panel.querySelector('h2');
+  const body=document.createElement('div');body.className='animation-layout';
+  const preview=document.createElement('section');preview.className='animation-preview';
+  const hint=document.createElement('p');hint.textContent='在画布上拖动选中的部件。身体不需要动？不要给身体设置起点和终点。';
+  preview.append(board,hint);
+  const sidePanel=document.createElement('div');sidePanel.className='animation-controls';
+  const section=(title,help)=>{const s=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=title;p.textContent=help;s.append(h,p);sidePanel.append(s);return s;};
+  const row=(parent,...children)=>{const r=document.createElement('div');r.className='studio-actions';r.append(...children);parent.append(r);return r;};
+  const setup=section('1 · 添加素材','设置导出画面大小，再导入头、身体等部件。只拼接现成图片？返回 GIF 页面直接导入图片即可。');
+  row(setup,field('aw'),field('ah'));row(setup,take('aImport'),take('aFiles'));row(setup,take('aSources'),take('aSource'));
+  const layers=section('2 · 摆放部件','从列表选择部件，再拖动画布中的部件调整位置。');
+  layers.append(field('aLayers'));row(layers,take('aCopy'),take('aDelete'),take('aUp'),take('aDown'));
+  const motion=section('3 · 让部件动起来','先点击“编辑起点”并摆放部件，再点击“编辑终点”并移动部件。软件会自动生成中间动作。');
+  row(motion,field('ad'),field('astep'));
+  const start=document.createElement('button');start.id='aStart';start.textContent='编辑起点';
+  const end=document.createElement('button');end.id='aEnd';end.textContent='编辑终点';
+  row(motion,start,end,take('aPlay'));
+  const advanced=document.createElement('details'),summary=document.createElement('summary');summary.textContent='高级调整 · 关键帧、曲线与路径';advanced.append(summary);sidePanel.append(advanced);
+  row(advanced,field('at'),take('aKey'),take('aDeleteKey'));row(advanced,field('ax'),field('ay'),field('ar'),field('as'),field('ao'));
+  advanced.append(field('ae'));const bezier=row(advanced,field('ab1'),field('ab2'),field('ab3'),field('ab4'));bezier.id='aBezierControls';bezier.hidden=true;
+  row(advanced,take('aPath'),take('aClearPath'));advanced.append(take('aKeys'));
+  const footer=document.createElement('footer');footer.className='animation-footer';footer.append(take('aBake'),take('aClose'));
+  body.append(preview,sidePanel);panel.replaceChildren(heading,body,footer);
   document.body.append(panel);const q=id=>panel.querySelector('#'+id),canvas=q('aCanvas');
+  q('aLayers').size=3;
+  const refreshSourceVisibility=()=>{q('aSources').parentElement.hidden=q('aSources').options.length===0;q('aBezierControls').hidden=q('ae').value!=='bezier';};
+  button.addEventListener('click',()=>queueMicrotask(refreshSourceVisibility));
+  // A separate, labeled beginner path stays visible outside the advanced workspace.
+  const previewPanel=document.querySelector('.gif-preview-panel');previewPanel.insertBefore(bar,document.querySelector('.gif-canvas-wrap'));
+  const guide=document.createElement('p');guide.className='gif-guide';guide.textContent='图片做 GIF：① 导入图片或选择拆分帧　② 排列顺序、设置每帧秒数　③ 播放预览并导出 GIF。';
+  const choose=document.createElement('button');choose.textContent='选择拆分帧';choose.onclick=()=>document.querySelector('#selectSplitFrames').click();
+  bar.replaceChildren(guide,importButton,choose,button);
   let scene={width:240,height:240,duration:1,step:.1,layers:[]},selected=-1,time=0,pathMode=false,drag=null,playing=0;
   const images=new Map();
   const uid=()=>crypto.randomUUID(); const layer=()=>scene.layers[selected];
@@ -48,5 +82,15 @@
   canvas.onpointermove=e=>{if(!drag||!layer())return;const p=point(e);if(pathMode){if(layer().path.length<2000)layer().path.push(p);draw();}else{q('ax').value=Math.round(p.x-drag.x);q('ay').value=Math.round(p.y-drag.y);setPose();}};
   canvas.onpointerup=canvas.onpointercancel=()=>{if(drag){drag=null;changed();fields();draw();}};
   q('aPlay').onclick=()=>{if(playing){stop();return;}const start=performance.now();const tick=now=>{time=((now-start)/1000)%scene.duration;q('at').value=time.toFixed(2);draw();playing=requestAnimationFrame(tick);};playing=requestAnimationFrame(tick);};
+  function endpoint(last){
+    if(!layer())return toast(t('请先添加部件图层。'));
+    stop();
+    if(last&&!layer().keys.length){time=0;q('aKey').click();}
+    time=last?scene.duration:0;q('at').value=time;q('aKey').click();fields();draw();
+    q('aStart').classList.toggle('active',!last);q('aEnd').classList.toggle('active',last);
+  }
+  q('aStart').onclick=()=>endpoint(false);q('aEnd').onclick=()=>endpoint(true);
+  q('ae').addEventListener('change',()=>{q('aBezierControls').hidden=q('ae').value!=='bezier';});
+  q('aLayers').addEventListener('change',()=>{q('aBezierControls').hidden=q('ae').value!=='bezier';});
   q('aBake').onclick=async()=>{if(!scene.layers.length)return toast('请先添加部件图层。');const count=Math.ceil(scene.duration/scene.step);if(count>600||scene.width*scene.height*count>80000000)return toast('动作过大，请减小画布或提高帧间隔（最多 600 帧）。','error');stop();q('aBake').disabled=true;try{const frames=[];for(let i=0;i<count;i++){const c=document.createElement('canvas');await render(c,i*scene.step);frames.push({id:uid(),name:'合成_'+String(i+1).padStart(3,'0'),data:c.toDataURL(),width:scene.width,height:scene.height,duration:Math.round(Math.min(scene.step,scene.duration-i*scene.step)*100)/100});}state.frames.push(...frames);state.selected=state.frames.length-frames.length;changed();persistDraft();refreshUI();panel.close();toast(`已追加 ${count} 帧合成动画。`);}catch(e){toast(e.message,'error');}finally{q('aBake').disabled=false;}};
 })();

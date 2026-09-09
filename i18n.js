@@ -42,6 +42,16 @@
     }
   };
   const studioLabels = [
+    ['在画布上拖动选中的部件。身体不需要动？不要给身体设置起点和终点。','Drag the selected part on the canvas. To keep the body still, leave its start and end positions unset.','選択したパーツをキャンバス上でドラッグします。胴体を静止させる場合は始点と終点を設定しないでください。'],
+    ['1 · 添加素材','1 · Add artwork','1 · 素材を追加'],
+    ['设置导出画面大小，再导入头、身体等部件。只拼接现成图片？返回 GIF 页面直接导入图片即可。','Set the output canvas size, then import parts such as a head and body. For complete images, return to the GIF page and import them directly.','出力サイズを設定し、頭や胴体などのパーツを読み込みます。完成した画像を並べるだけなら、GIF画面で直接読み込めます。'],
+    ['2 · 摆放部件','2 · Arrange parts','2 · パーツを配置'],
+    ['从列表选择部件，再拖动画布中的部件调整位置。','Select a part from the list, then drag it on the canvas to position it.','リストからパーツを選び、キャンバス上でドラッグして配置します。'],
+    ['3 · 让部件动起来','3 · Animate a part','3 · パーツを動かす'],
+    ['先点击“编辑起点”并摆放部件，再点击“编辑终点”并移动部件。软件会自动生成中间动作。','Choose Edit start and position the part. Then choose Edit end and move it. The app generates the movement between them.','「始点を編集」で開始位置を決め、「終点を編集」で終了位置に移動します。間の動きは自動で生成されます。'],
+    ['编辑起点','Edit start','始点を編集'],['编辑终点','Edit end','終点を編集'],
+    ['高级调整 · 关键帧、曲线与路径','Advanced · Keyframes, curves and paths','詳細設定 · キーフレーム・曲線・パス'],
+    ['图片做 GIF：① 导入图片或选择拆分帧　② 排列顺序、设置每帧秒数　③ 播放预览并导出 GIF。','Image GIF: ① Import images or choose split frames. ② Arrange them and set each frame’s duration. ③ Preview and export GIF.','画像からGIF：① 画像または分割フレームを追加　② 順序と各フレームの秒数を設定　③ プレビューしてGIFを書き出し。'],
     ['导入图片','Import images','画像を読み込む'],
     ['部件动画工作区','Parts animation workspace','パーツアニメーション編集'],
     ['导入身体、头部等图层，在画面上拖动拼接。每个图层独立记录关键帧，未设关键帧的身体保持不动。','Import body, head or other parts as layers and drag them into place. Each layer has its own keyframes; layers without keyframes stay still.','胴体や頭などをレイヤーとして読み込み、ドラッグして配置します。レイヤーごとにキーフレームを設定でき、未設定のレイヤーは静止します。'],

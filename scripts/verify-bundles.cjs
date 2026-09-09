@@ -1,7 +1,7 @@
 const fs=require('fs'),crypto=require('crypto'),JSZip=require('jszip'),asar=require('@electron/asar');
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 (async()=>{
- const apk='release/Pixel DecomposerV0.1.4.apk',exe='dist/Pixel Decomposer Setup 0.1.4.exe';
+ const apk='release/Pixel DecomposerV0.1.5.apk',exe='dist/Pixel Decomposer Setup 0.1.5.exe';
  const zip=await JSZip.loadAsync(fs.readFileSync(apk));const files=[];
  for(const name of ['index.html','editor.html','gif.html','settings.html','app.js','editor.js','gif.js','paint-tools.js','animation-studio.js','chroma.js','i18n.js','styles.css']){
   const web=hash(fs.readFileSync('www/'+name));

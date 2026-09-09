@@ -1,6 +1,6 @@
 {
   "name": "pixel-decomposer",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Pixel sprite splitting, drawing, and GIF animation workspace.",
   "author": "Pixel Decomposer",
   "main": "electron/main.cjs",

@@ -119,7 +119,7 @@ function drawThumb(canvas, frame) {
   image.src = frame.data;
 }
 
-function orderButton(icon, label, action) { const button = document.createElement("button"); button.type = "button"; button.className = "order-button"; button.setAttribute("aria-label", label); button.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`; button.addEventListener("click", action); return button; }
+function orderButton(icon, label, action) { const button = document.createElement("button"); button.type = "button"; button.className = "order-button"; button.setAttribute("aria-label", PixelI18n.t(label)); button.dataset.tip=label; button.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i>`; button.addEventListener("click", action); return button; }
 function moveFrame(index, direction) { const target = index + direction; if (target < 0 || target >= state.frames.length) return; [state.frames[index], state.frames[target]] = [state.frames[target], state.frames[index]]; state.selected = target; markDirty(); persistDraft(); refreshUI(); }
 function duplicateFrame(index) { const frame = state.frames[index]; if (!frame) return; state.frames.splice(index + 1, 0, { ...frame, id: `gif-copy-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: `${frame.name}_copy` }); state.selected = index + 1; markDirty(); persistDraft(); refreshUI(); toast("已复制此帧，可单独调整时长与顺序。"); }
 function deleteFrame(index) { if (index < 0 || index >= state.frames.length) return; const [removed] = state.frames.splice(index, 1); state.selected = state.frames.length ? Math.min(index, state.frames.length - 1) : -1; markDirty(); persistDraft(); refreshUI(); toast(`已删除 ${removed.name}。`); }

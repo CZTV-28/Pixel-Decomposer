@@ -1,6 +1,6 @@
 const {app,BrowserWindow}=require('electron');
 const fs=require('fs'),path=require('path');
-const root=path.resolve('dist/win-unpacked/resources/app.asar/www');
+const root=path.resolve(process.env.PIXEL_VERIFY_WEB_ROOT||'dist/win-unpacked/resources/app.asar/www');
 app.whenReady().then(async()=>{
   const w=new BrowserWindow({show:false,width:1440,height:920,webPreferences:{offscreen:true,backgroundThrottling:false}});const report=[],errors=[];
   w.webContents.on('console-message',(_,level,message)=>{if(level===3)errors.push(message);});
@@ -18,6 +18,11 @@ app.whenReady().then(async()=>{
           if(!b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)))throw Error('Feature entry obscured');
           b.click();const d=document.querySelector('dialog[open]');
           if(!d)throw Error('Feature dialog did not open');
+          if('${page}'==='gif'){
+            const f=d.querySelector('.animation-footer').getBoundingClientRect();
+            if(f.bottom>innerHeight||f.top<0)throw Error('Animation footer clipped');
+            if(d.querySelector('details').open)throw Error('Advanced controls should start collapsed');
+          }
           const count=d.querySelectorAll('button').length;
           if('${locale}'==='en'&&/[\u4e00-\u9fff]/.test(d.textContent))throw Error('Untranslated English feature panel');
           const title=d.querySelector('h2').textContent;

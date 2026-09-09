@@ -11,8 +11,8 @@ app.whenReady().then(async()=>{
    document.querySelector('#openAnimationStudio').click();
    const q=id=>document.querySelector('#'+id),change=(id,v)=>{q(id).value=v;q(id).dispatchEvent(new Event('change'));};
    q('aSource').click();await pause();change('ay',140);
-   change('aSources',1);q('aSource').click();await pause();q('aKey').click();
-   change('at',1);change('ax',180);q('aBake').click();await new Promise(r=>setTimeout(r,600));
+   change('aSources',1);q('aSource').click();await pause();q('aStart').click();
+   q('aEnd').click();change('ax',180);q('aBake').click();await new Promise(r=>setTimeout(r,600));
    const pixel=async(f,x,y)=>{const im=new Image();im.src=f.data;await im.decode();const c=document.createElement('canvas');c.width=f.width;c.height=f.height;const ctx=c.getContext('2d');ctx.drawImage(im,0,0);return [...ctx.getImageData(x,y,1,1).data];};
    const first=state.frames[0],last=state.frames.at(-1);
    return {count:state.frames.length,bodyStart:await pixel(first,120,140),bodyEnd:await pixel(last,120,140),headStart:await pixel(first,120,120),headEnd:await pixel(last,174,120),headOldPosition:await pixel(last,120,120),transparent:await pixel(first,0,0),bodyKeys:state.project.animationScene.layers[0].keys.length,headKeys:state.project.animationScene.layers[1].keys.length};
