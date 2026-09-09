@@ -41,6 +41,28 @@
       "清除源贴图": "Clear Source Sprite", "缩小": "Zoom Out", "放大": "Zoom In", "重置缩放": "Reset Zoom", "下一帧": "Next Frame", "色卡": "Palette", "移动": "Pan", "导出": "Export", "画布 / 部件动画": "Canvas / Part Animation", "去除底色": "Remove Background", "导入图片帧": "Import Image Frames", "选择拆分帧": "Choose Split Frames", "复制此帧": "Duplicate Frame", "删除此帧": "Delete Frame", "手绘运动路径：关": "Draw Motion Path: Off", "手绘运动路径：开": "Draw Motion Path: On"
     }
   };
+  const studioLabels = [
+    ['导入图片','Import images','画像を読み込む'],
+    ['部件动画工作区','Parts animation workspace','パーツアニメーション編集'],
+    ['导入身体、头部等图层，在画面上拖动拼接。每个图层独立记录关键帧，未设关键帧的身体保持不动。','Import body, head or other parts as layers and drag them into place. Each layer has its own keyframes; layers without keyframes stay still.','胴体や頭などをレイヤーとして読み込み、ドラッグして配置します。レイヤーごとにキーフレームを設定でき、未設定のレイヤーは静止します。'],
+    ['画布宽','Canvas width','キャンバスの幅'],['画布高','Canvas height','キャンバスの高さ'],
+    ['动作秒数','Duration (seconds)','再生時間（秒）'],['帧间隔秒','Frame interval (seconds)','フレーム間隔（秒）'],
+    ['导入部件图层','Import part layers','パーツレイヤーを読み込む'],['添加所选素材为图层','Add selected asset as layer','選択素材をレイヤーに追加'],
+    ['可用素材','Available assets','使用できる素材'],['当前时间','Current time','現在の時間'],['播放 / 停止','Play / Stop','再生 / 停止'],
+    ['记录 / 更新关键帧','Record / Update keyframe','キーフレームを記録 / 更新'],['删除当前时间关键帧','Delete keyframe at current time','現在のキーフレームを削除'],
+    ['清除运动路径','Clear motion path','移動パスを消去'],['图层（后面的在上层）','Layers (later entries appear on top)','レイヤー（下の項目ほど前面）'],
+    ['复制图层','Duplicate layer','レイヤーを複製'],['删除图层','Delete layer','レイヤーを削除'],['上移一层','Bring forward','一つ前面へ'],['下移一层','Send backward','一つ背面へ'],
+    ['旋转角度','Rotation (degrees)','回転角度'],['缩放','Scale','拡大率'],['不透明度','Opacity','不透明度'],
+    ['关键帧插值','Keyframe interpolation','キーフレーム補間'],['线性','Linear','線形'],['平滑缓入缓出','Ease in / out','イーズイン / アウト'],
+    ['正弦缓动','Sine easing','サイン補間'],['保持（表情切换）','Hold (expression changes)','保持（表情の切り替え）'],['自定义三次贝塞尔','Custom cubic Bézier','カスタム三次ベジェ'],
+    ['控制点 1 X','Control point 1 X','制御点 1 X'],['控制点 1 Y','Control point 1 Y','制御点 1 Y'],['控制点 2 X','Control point 2 X','制御点 2 X'],['控制点 2 Y','Control point 2 Y','制御点 2 Y'],
+    ['关键帧：','Keyframes:','キーフレーム：'],
+    ['手绘路径作用于当前图层中心，在整段动作内播放；位置路径优先于位置关键帧。旋转、缩放、不透明度仍由关键帧控制。画布外内容会被裁切。','A drawn path moves the selected layer’s center over the full duration and overrides position keyframes. Rotation, scale and opacity still follow keyframes. Content outside the canvas is cropped.','手描きパスは選択レイヤーの中心を全再生時間にわたって移動させ、位置キーフレームより優先されます。回転・拡大率・不透明度はキーフレームに従います。キャンバス外は切り取られます。'],
+    ['生成并追加到 GIF 时间线','Generate and append to GIF timeline','生成してGIFタイムラインに追加'],['完成，返回 GIF','Done, return to GIF','完了してGIFに戻る'],
+    ['请先添加部件图层。','Add a part layer first.','先にパーツレイヤーを追加してください。'],['部件导入失败。','Could not import the part.','パーツを読み込めませんでした。'],
+    ['动作过大，请减小画布或提高帧间隔（最多 600 帧）。','Animation is too large. Reduce the canvas size or increase the frame interval (maximum 600 frames).','アニメーションが大きすぎます。キャンバスを小さくするか、フレーム間隔を長くしてください（最大600フレーム）。']
+  ];
+  studioLabels.forEach(([zh,en,ja])=>{dictionary.en[zh]=en;dictionary.ja[zh]=ja;});
   const originalText = new WeakMap();
   const originalAttributes = new WeakMap();
 
@@ -94,5 +116,11 @@
   }
 
   window.PixelI18n = { language, setLanguage, t: translate, apply };
-  document.addEventListener("DOMContentLoaded", () => apply());
+  document.addEventListener("DOMContentLoaded", () => {
+    apply();
+    const tip=document.createElement('div');tip.id='global-tooltip';tip.setAttribute('role','tooltip');tip.hidden=true;document.body.append(tip);
+    const hide=()=>{tip.hidden=true;};
+    document.addEventListener('pointerover',event=>{const target=event.target.closest('[data-tip]');if(!target)return;tip.textContent=translate(target.getAttribute('data-tip'));tip.hidden=false;const b=target.getBoundingClientRect();tip.style.left=Math.max(8,Math.min(innerWidth-tip.offsetWidth-8,b.left))+'px';tip.style.top=(b.top>tip.offsetHeight+12?b.top-tip.offsetHeight-8:Math.min(innerHeight-tip.offsetHeight-8,b.bottom+8))+'px';});
+    document.addEventListener('pointerout',hide);document.addEventListener('pointerdown',hide);document.addEventListener('scroll',hide,true);
+  });
 })();

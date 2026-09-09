@@ -1,6 +1,9 @@
 "use strict";
 (() => {
-  const button=document.createElement('button');button.className='command-button';button.textContent='画布 / 部件动画';document.querySelector('.gif-list-header').after(button);
+  const t=value=>window.PixelI18n?.t(value)||value;
+  const bar=document.createElement('div');bar.className='feature-bar gif-feature-bar';document.querySelector('.gif-canvas-wrap').prepend(bar);
+  const button=document.createElement('button');button.id='openAnimationStudio';button.textContent='画布 / 部件动画';bar.append(button);
+  const importButton=document.createElement('button');importButton.textContent='导入图片';importButton.onclick=()=>document.querySelector('#gifImageInput').click();bar.append(importButton);
   const panel=document.createElement('dialog');panel.className='studio-dialog animation-dialog';
   panel.innerHTML=`<h2>部件动画工作区</h2><p>导入身体、头部等图层，在画面上拖动拼接。每个图层独立记录关键帧，未设关键帧的身体保持不动。</p>
   <div class="studio-actions"><label>画布宽 <input id="aw" type="number" min="1" max="2048" value="240"></label><label>画布高 <input id="ah" type="number" min="1" max="2048" value="240"></label><label>动作秒数 <input id="ad" type="number" min="0.01" max="60" step="0.01" value="1"></label><label>帧间隔秒 <input id="astep" type="number" min="0.01" max="1" step="0.01" value="0.1"></label><button id="aImport">导入部件图层</button><button id="aSource">添加所选素材为图层</button><select id="aSources" aria-label="可用素材"></select><input id="aFiles" type="file" accept="image/png,image/webp,image/jpeg" multiple hidden></div>
@@ -20,7 +23,7 @@
   function pose(l,t){let p={x:l.x,y:l.y,r:l.r,s:l.s,o:l.o};const keys=l.keys||[];if(keys.length){if(t<=keys[0].t)p={...keys[0]};else if(t>=keys.at(-1).t)p={...keys.at(-1)};else {const i=keys.findIndex(k=>k.t>t),a=keys[i-1],b=keys[i],v=curve((t-a.t)/(b.t-a.t),l);for(const k of ['x','y','r','s','o'])p[k]=a[k]+(b[k]-a[k])*v;}}if(l.path?.length){const u=clamp(t/scene.duration,0,1)*(l.path.length-1),i=Math.floor(u),a=l.path[i],b=l.path[Math.min(i+1,l.path.length-1)];p.x=a.x+(b.x-a.x)*(u-i);p.y=a.y+(b.y-a.y)*(u-i);}p.s=Math.max(.01,p.s);p.o=clamp(p.o,0,1);return p;}
   async function render(target,t,overlay=false){const ctx=target.getContext('2d');target.width=scene.width;target.height=scene.height;ctx.imageSmoothingEnabled=false;for(const l of scene.layers){const im=await loadImage(l.data),p=pose(l,t);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r*Math.PI/180);ctx.scale(p.s,p.s);ctx.globalAlpha=p.o;ctx.drawImage(im,-l.width/2,-l.height/2);ctx.restore();}if(overlay&&layer()){const p=pose(layer(),t);ctx.strokeStyle='#00cbb4';ctx.lineWidth=1;ctx.strokeRect(p.x-5,p.y-5,10,10);if(layer().path?.length){ctx.beginPath();layer().path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}}}
   let rendering=false,rerender=false;async function draw(){if(rendering){rerender=true;return;}rendering=true;do{rerender=false;try{await render(canvas,time,true);}catch(e){toast(e.message,'error');}}while(rerender);rendering=false;}
-  function fields(){const l=layer();if(!l)return;const p=pose(l,time);for(const k of ['x','y','r','s','o'])q('a'+k).value=Number(p[k].toFixed(3));q('ae').value=l.ease;[1,2,3,4].forEach((n,i)=>q('ab'+n).value=l.bezier[i]);q('aKeys').textContent='关键帧：'+l.keys.map(k=>k.t.toFixed(2)+'s').join(' · ');}
+  function fields(){const l=layer();if(!l)return;const p=pose(l,time);for(const k of ['x','y','r','s','o'])q('a'+k).value=Number(p[k].toFixed(3));q('ae').value=l.ease;[1,2,3,4].forEach((n,i)=>q('ab'+n).value=l.bezier[i]);q('aKeys').textContent=t('关键帧：')+l.keys.map(k=>k.t.toFixed(2)+'s').join(' · ');}
   function list(){q('aLayers').replaceChildren();scene.layers.forEach((l,i)=>{const o=new Option(l.name,String(i));q('aLayers').add(o);});q('aLayers').value=String(selected);fields();draw();}
   button.onclick=()=>{scene=structuredClone(state.project?.animationScene||scene);selected=scene.layers.length?0:-1;controls();q('aSources').replaceChildren();[...state.availableFrames,...state.frames].forEach((f,i)=>q('aSources').add(new Option(f.name,String(i))));panel.showModal();list();};
   q('aClose').onclick=()=>{stop();changed();panel.close();};panel.addEventListener('cancel',()=>{stop();changed();});
@@ -39,7 +42,7 @@
   q('aCopy').onclick=()=>{if(!layer())return;scene.layers.push({...structuredClone(layer()),id:uid(),name:layer().name+' 副本'});selected=scene.layers.length-1;changed();list();};
   q('aDelete').onclick=()=>{if(!layer())return;scene.layers.splice(selected,1);selected=Math.min(selected,scene.layers.length-1);changed();list();};
   for(const [id,d] of [['aUp',1],['aDown',-1]])q(id).onclick=()=>{const n=selected+d;if(n<0||n>=scene.layers.length)return;[scene.layers[selected],scene.layers[n]]=[scene.layers[n],scene.layers[selected]];selected=n;changed();list();};
-  q('aPath').onclick=()=>{pathMode=!pathMode;q('aPath').textContent='手绘运动路径：'+(pathMode?'开':'关');};q('aClearPath').onclick=()=>{if(layer()){layer().path=[];changed();draw();}};
+  q('aPath').onclick=()=>{pathMode=!pathMode;q('aPath').textContent=t('手绘运动路径：'+(pathMode?'开':'关'));};q('aClearPath').onclick=()=>{if(layer()){layer().path=[];changed();draw();}};
   const point=e=>{const b=canvas.getBoundingClientRect();return{x:(e.clientX-b.left)*scene.width/b.width,y:(e.clientY-b.top)*scene.height/b.height};};
   canvas.onpointerdown=e=>{if(!layer())return;stop();canvas.setPointerCapture(e.pointerId);const p=point(e),v=pose(layer(),time);drag={x:p.x-v.x,y:p.y-v.y};if(pathMode)layer().path=[p];};
   canvas.onpointermove=e=>{if(!drag||!layer())return;const p=point(e);if(pathMode){if(layer().path.length<2000)layer().path.push(p);draw();}else{q('ax').value=Math.round(p.x-drag.x);q('ay').value=Math.round(p.y-drag.y);setPose();}};

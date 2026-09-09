@@ -4,7 +4,9 @@
   const t=i=>(labels[window.PixelI18n?.language()]||labels['zh-CN'])[i];
   let tool=null,selection=null,clipboard=null,stroke=null,filled=false,mx=false,my=false,opacity=1;
   const stage=document.querySelector('#paintStage');
-  const launcher=document.createElement('button');launcher.className='command-button paint-more';launcher.textContent=t(0);document.querySelector('.paint-editor .toolbar-left').append(launcher);
+  const bar=document.createElement('div');bar.className='feature-bar';document.querySelector('.paint-editor .workspace').prepend(bar);
+  const launcher=document.createElement('button');launcher.className='paint-more';launcher.textContent=t(0);bar.append(launcher);
+  const quick=[];['line','rect','ellipse','select'].forEach((v,i)=>{const b=document.createElement('button');b.textContent=t(i+1);b.onclick=()=>{tool=v;setTool('pencil');launcher.textContent=t(0);quick.forEach(x=>x.classList.toggle('active',x===b));};quick.push(b);bar.append(b);});
   const dialog=document.createElement('dialog');dialog.className='studio-dialog';document.body.append(dialog);
   const overlay=document.createElement('div');overlay.style.cssText='position:absolute;pointer-events:none;border:1px dashed #ffad50;box-sizing:border-box;display:none;z-index:3';stage.append(overlay);stage.style.position='relative';
   function bounds(){if(!selection){overlay.style.display='none';return;}const b=paintCanvas.getBoundingClientRect(),a=stage.getBoundingClientRect(),sx=b.width/paintCanvas.width,sy=b.height/paintCanvas.height;Object.assign(overlay.style,{display:'block',left:(b.left-a.left+selection.x*sx)+'px',top:(b.top-a.top+selection.y*sy)+'px',width:selection.w*sx+'px',height:selection.h*sy+'px'});}
@@ -32,5 +34,5 @@
   function transform(kind){const r=selection||{x:0,y:0,w:paintCanvas.width,h:paintCanvas.height},c=document.createElement('canvas');c.width=r.w;c.height=r.h;c.getContext('2d').putImageData(paintContext.getImageData(r.x,r.y,r.w,r.h),0,0);pushHistory();paintContext.clearRect(r.x,r.y,r.w,r.h);paintContext.save();paintContext.translate(r.x+r.w/2,r.y+r.h/2);if(kind==='rotate')paintContext.rotate(Math.PI/2);else paintContext.scale(kind==='x'?-1:1,kind==='y'?-1:1);paintContext.imageSmoothingEnabled=false;paintContext.drawImage(c,-r.w/2,-r.h/2);paintContext.restore();commitCanvas();}
   document.addEventListener('keydown',e=>{if(e.target.closest('input,textarea,select')||dialog.open)return;if(e.key==='Escape'){selection=null;tool=null;bounds();}if((e.ctrlKey||e.metaKey)&&['c','v','a'].includes(e.key.toLowerCase())){e.preventDefault();if(e.key.toLowerCase()==='c')copy();if(e.key.toLowerCase()==='v')paste();if(e.key.toLowerCase()==='a'){selection={x:0,y:0,w:paintCanvas.width,h:paintCanvas.height};tool='select';bounds();}}if(e.key==='Delete'&&selection){e.preventDefault();erase();}});
   const oldRefresh=refreshUI;refreshUI=(...args)=>{selection=null;stroke=null;bounds();return oldRefresh(...args);};
-  document.addEventListener('pixel-decomposer-language',()=>{launcher.textContent=t(0);if(dialog.open)menu();});
+  document.addEventListener('pixel-decomposer-language',()=>{launcher.textContent=t(0);quick.forEach((b,i)=>b.textContent=t(i+1));if(dialog.open)menu();});
 })();
