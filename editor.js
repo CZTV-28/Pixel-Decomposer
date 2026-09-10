@@ -5,6 +5,19 @@ const paintCanvas = $("#paintCanvas");
 const paintContext = paintCanvas.getContext("2d", { willReadFrequently: true });
 const previewCanvas = $("#paintPreview");
 const previewContext = previewCanvas.getContext("2d");
+const compositeCanvas=document.createElement('canvas');
+compositeCanvas.id='paintComposite';compositeCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated';
+paintCanvas.after(compositeCanvas);paintCanvas.style.opacity='0';
+let layerImages=[],layerRenderToken=0,compositeFrame=0;
+function schedulePaintComposite(){if(!compositeFrame)compositeFrame=requestAnimationFrame(()=>{compositeFrame=0;drawPaintComposite();});}
+function drawPaintComposite(){
+ const frame=currentFrame();if(!frame)return;
+ compositeCanvas.width=frame.width;compositeCanvas.height=frame.height;
+ const ctx=compositeCanvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+ PixelLayers.ensure(frame).forEach((layer,index)=>{if(!layer.visible)return;ctx.globalAlpha=layer.opacity??1;const image=index===frame.activeLayer?paintCanvas:layerImages[index];if(image)ctx.drawImage(image,0,0);});
+ ctx.globalAlpha=1;renderPreview();
+}
+function editableLayer(){const f=currentFrame();return f&&!PixelLayers.active(f).locked&&PixelLayers.active(f).visible;}
 const defaults = ["#2dd5c3", "#b4db5d", "#f0a25a", "#e77d76", "#e7f1eb", "#1d2924"];
 const MAX_PALETTE_COLORS = 48;
 const PALETTE_MEMORY_KEY = "pixel-decomposer-palette-v1";
@@ -87,12 +100,14 @@ async function loadDraft() {
 }
 
 function applyProject(project) {
+  state.projectExtras={...project};
+  if(!project.frames?.length&&project.sourceDrawing){project={...project,frames:project.drawingFrames?.length?project.drawingFrames:[project.sourceDrawing],editorMode:'source',sourceEditFrameId:project.sourceDrawing.id};}
   state.projectName = project.name || "未命名像素工程";
   state.source = project.source || { name: "", data: "" };
   state.sourceEditFrameId = project.editorMode === "source" ? project.sourceEditFrameId || project.frames?.[0]?.id || null : null;
   state.sourceEditOriginalSize = project.editorMode === "source" ? project.sourceEditOriginalSize || null : null;
   state.regions = Array.isArray(project.regions) ? project.regions : [];
-  state.frames = Array.isArray(project.frames) ? project.frames.map((frame, index) => ({ id: frame.id || `${Date.now()}-${index}`, name: frame.name || `frame_${index + 1}`, data: frame.data, width: frame.width, height: frame.height, history: [], future: [] })) : [];
+  state.frames = Array.isArray(project.frames) ? project.frames.map((frame, index) => ({ id: frame.id || `${Date.now()}-${index}`, name: frame.name || `frame_${index + 1}`, data: frame.data, width: frame.width, height: frame.height, layers: structuredClone(frame.layers), activeLayer: frame.activeLayer||0, duration:frame.duration||.12, history: [], future: [] })) : [];
   state.palette = mergePaletteColors(project.palette, readPaletteMemory(), defaults);
   state.paletteSelected = 0;
   state.color = state.palette[0];
@@ -151,20 +166,16 @@ function toggleFrameSelection() {
   refreshUI();
 }
 
-function renderCurrentFrame() {
-  const frame = currentFrame();
-  if (!frame) return;
-  const image = new Image();
-  image.onload = () => {
-    paintCanvas.width = frame.width; paintCanvas.height = frame.height;
-    paintContext.imageSmoothingEnabled = false;
-    paintContext.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
-    paintContext.drawImage(image, 0, 0);
-    applyZoom(); renderPreview();
-  };
-  image.src = frame.data;
+async function renderCurrentFrame() {
+ const frame=currentFrame();if(!frame)return;const token=++layerRenderToken;
+ try{
+  const layers=PixelLayers.ensure(frame),loaded=await Promise.all(layers.map(l=>PixelLayers.image(l.data)));
+  if(token!==layerRenderToken||frame!==currentFrame())return;
+  layerImages=loaded;paintCanvas.width=frame.width;paintCanvas.height=frame.height;
+  paintContext.imageSmoothingEnabled=false;paintContext.drawImage(loaded[frame.activeLayer],0,0);
+  applyZoom();drawPaintComposite();window.dispatchEvent(new Event('paint-layers-change'));
+ }catch(e){toast(e.message,'error');}
 }
-
 function refreshUI() {
   const sourceMode = Boolean(state.sourceEditFrameId);
   $("#editorProjectName").value = state.projectName;
@@ -232,7 +243,7 @@ function renderPreview() {
   const frame = currentFrame(); if (!frame) return;
   previewCanvas.width = 144; previewCanvas.height = 144; previewContext.clearRect(0, 0, 144, 144);
   const scale = Math.min(144 / frame.width, 144 / frame.height), width = Math.max(1, Math.floor(frame.width * scale)), height = Math.max(1, Math.floor(frame.height * scale));
-  previewContext.imageSmoothingEnabled = false; previewContext.drawImage(paintCanvas, Math.floor((144 - width) / 2), Math.floor((144 - height) / 2), width, height);
+  previewContext.imageSmoothingEnabled = false; previewContext.drawImage(compositeCanvas, Math.floor((144 - width) / 2), Math.floor((144 - height) / 2), width, height);
 }
 
 function setTool(tool) {
@@ -272,7 +283,7 @@ function canvasPoint(event) {
 }
 
 function beginPaint(event) {
-  if (event.button !== 0 || !currentFrame()) return;
+  if (event.button !== 0 || !currentFrame() || (!state.panMode && !editableLayer())) return;
   const point = canvasPoint(event);
   if (event.pointerType === "touch") {
     state.touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -295,14 +306,14 @@ function beginPaint(event) {
 function paintMove(event) { const point = canvasPoint(event); if (event.pointerType === "touch") { state.touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY }); if (state.gesture) { updatePaintGesture(); event.preventDefault(); return; } } if (state.panning?.pointerId === event.pointerId) { updatePaintPan(event); event.preventDefault(); return; } if (!state.drawing) return; drawLine(state.lastPoint, point); state.lastPoint = point; event.preventDefault(); }
 function endPaint(event) { if (event.pointerType === "touch") { state.touchPoints.delete(event.pointerId); if (state.gesture || state.touchPoints.size) { state.gesture = null; state.drawing = false; state.lastPoint = null; releasePaintPointer(event.pointerId); return; } } if (state.panning?.pointerId === event.pointerId) { state.panning = null; $("#paintStage").classList.remove("is-panning-active"); releasePaintPointer(event.pointerId); return; } if (!state.drawing) { releasePaintPointer(event.pointerId); return; } state.drawing = false; state.lastPoint = null; commitCanvas(); releasePaintPointer(event.pointerId); }
 function showPointer(event) { const point = canvasPoint(event); $("#paintPointer").textContent = `x: ${String(point.x).padStart(2, "0")}  y: ${String(point.y).padStart(2, "0")}`; }
-function paintPoint(x, y) { const offset = Math.floor(state.brush / 2); if (state.tool === "eraser") paintContext.clearRect(x - offset, y - offset, state.brush, state.brush); else { paintContext.fillStyle = state.color; paintContext.fillRect(x - offset, y - offset, state.brush, state.brush); } }
+function paintPoint(x, y) { if(!editableLayer())return; schedulePaintComposite(); const offset = Math.floor(state.brush / 2); if (state.tool === "eraser") paintContext.clearRect(x - offset, y - offset, state.brush, state.brush); else { paintContext.fillStyle = state.color; paintContext.fillRect(x - offset, y - offset, state.brush, state.brush); } }
 function drawLine(from, to) { let x0 = from.x, y0 = from.y; const x1 = to.x, y1 = to.y, dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1; let error = dx + dy; while (true) { paintPoint(x0, y0); if (x0 === x1 && y0 === y1) break; const twice = 2 * error; if (twice >= dy) { error += dy; x0 += sx; } if (twice <= dx) { error += dx; y0 += sy; } } }
 function pickColor(point) { const pixel = paintContext.getImageData(point.x, point.y, 1, 1).data; if (!pixel[3]) { toast("这个像素是透明的。", "error"); return; } setCurrentColor(rgbToHex(pixel[0], pixel[1], pixel[2])); }
 function floodFill(point) { const width = paintCanvas.width, height = paintCanvas.height, image = paintContext.getImageData(0, 0, width, height), data = image.data, start = (point.y * width + point.x) * 4, target = [data[start], data[start + 1], data[start + 2], data[start + 3]], fill = hexToRgb(state.color).concat(255); if (target.every((value, index) => value === fill[index])) return; const stack = [[point.x, point.y]]; while (stack.length) { const [x, y] = stack.pop(); if (x < 0 || y < 0 || x >= width || y >= height) continue; const index = (y * width + x) * 4; if (target.some((value, channel) => data[index + channel] !== value)) continue; data.set(fill, index); stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); } paintContext.putImageData(image, 0, 0); }
-function paintSnapshot(frame) { return { data: frame.data, width: frame.width, height: frame.height }; }
-function applyPaintSnapshot(frame, snapshot) { const restored = typeof snapshot === "string" ? { data: snapshot, width: frame.width, height: frame.height } : snapshot; frame.data = restored.data; frame.width = restored.width; frame.height = restored.height; }
+function paintSnapshot(frame) { return PixelLayers.snapshot(frame); }
+function applyPaintSnapshot(frame, snapshot) { const restored = typeof snapshot === "string" ? { data: snapshot, width: frame.width, height: frame.height } : snapshot; frame.data = restored.data; frame.width = restored.width; frame.height = restored.height; frame.layers=structuredClone(restored.layers);frame.activeLayer=restored.activeLayer||0; }
 function pushHistory() { const frame = currentFrame(); frame.history.push(paintSnapshot(frame)); if (frame.history.length > 24) frame.history.shift(); frame.future = []; }
-function commitCanvas() { const frame = currentFrame(); frame.data = paintCanvas.toDataURL("image/png"); frame.width = paintCanvas.width; frame.height = paintCanvas.height; markDirty(); renderPreview(); renderFrameStrip(); renderInspector(); }
+function commitCanvas() { const frame = currentFrame(); PixelLayers.active(frame).data=paintCanvas.toDataURL("image/png");drawPaintComposite();frame.data = compositeCanvas.toDataURL("image/png"); frame.width = paintCanvas.width; frame.height = paintCanvas.height; markDirty(); renderPreview(); renderFrameStrip(); renderInspector(); }
 function undo() { const frame = currentFrame(); if (!frame?.history.length) { toast("当前帧没有可撤销的绘制或尺寸调整。", "error"); return; } frame.future = frame.future || []; frame.future.push(paintSnapshot(frame)); applyPaintSnapshot(frame, frame.history.pop()); markDirty(); refreshUI(); }
 function redo() { const frame = currentFrame(); if (!frame?.future?.length) { toast("当前帧没有可重做的绘制或尺寸调整。", "error"); return; } frame.history.push(paintSnapshot(frame)); applyPaintSnapshot(frame, frame.future.pop()); markDirty(); refreshUI(); }
 
@@ -450,8 +461,8 @@ function zoomPaintWithWheel(event) {
   setZoom(state.zoomTarget * Math.exp(-normalizedWheelDelta(event) * .00022), true, zoomAnchor(event.clientX, event.clientY));
 }
 function normalizedWheelDelta(event) { const unit = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? 240 : 1; return Math.max(-120, Math.min(120, event.deltaY * unit)); }
-function resizeFrame() { const frame = currentFrame(); const width = Math.max(1, Math.min(4096, Number($("#paintWidth").value) || frame.width)), height = Math.max(1, Math.min(4096, Number($("#paintHeight").value) || frame.height)); if (width === frame.width && height === frame.height) return; pushHistory(); const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height; const context = canvas.getContext("2d"); context.imageSmoothingEnabled = false; context.drawImage(paintCanvas, 0, 0); frame.width = width; frame.height = height; frame.data = canvas.toDataURL("image/png"); markDirty(); refreshUI(); }
-function frameActionSnapshot() { return { frames: state.frames.map(({ id, name, data, width, height }) => ({ id, name, data, width, height })), selected: state.selected, selectedFrames: [...state.selectedFrames], multiSelecting: state.multiSelecting }; }
+async function resizeFrame() { const frame = currentFrame(); const width = Math.max(1, Math.min(4096, Number($("#paintWidth").value) || frame.width)), height = Math.max(1, Math.min(4096, Number($("#paintHeight").value) || frame.height)); if (width === frame.width && height === frame.height) return; pushHistory(); const resized=await Promise.all(PixelLayers.ensure(frame).map(async layer=>{const c=document.createElement('canvas');c.width=width;c.height=height;c.getContext('2d').drawImage(await PixelLayers.image(layer.data),0,0);return {...layer,data:c.toDataURL()};}));frame.layers=resized;frame.width=width;frame.height=height;await renderCurrentFrame();commitCanvas(); }
+function frameActionSnapshot() { return { frames: state.frames.map(frame=>PixelLayers.snapshot(frame)), selected: state.selected, selectedFrames: [...state.selectedFrames], multiSelecting: state.multiSelecting }; }
 function pushFrameActionHistory() { state.frameActionHistory.push(frameActionSnapshot()); if (state.frameActionHistory.length > 30) state.frameActionHistory.shift(); state.frameActionFuture = []; }
 function restoreFrameActionSnapshot(snapshot) {
   state.frames = snapshot.frames.map((frame) => ({ ...frame, history: [], future: [] }));
@@ -464,7 +475,7 @@ function restoreFrameActionSnapshot(snapshot) {
 function undoFrameAction() { if (!state.frameActionHistory.length) { toast("没有可撤销的帧操作。", "error"); return; } state.frameActionFuture.push(frameActionSnapshot()); restoreFrameActionSnapshot(state.frameActionHistory.pop()); markDirty(); toast("已撤销帧操作。"); }
 function redoFrameAction() { if (!state.frameActionFuture.length) { toast("没有可重做的帧操作。", "error"); return; } state.frameActionHistory.push(frameActionSnapshot()); restoreFrameActionSnapshot(state.frameActionFuture.pop()); markDirty(); toast("已重做帧操作。"); }
 function syncFrameActionControls() { $("#undoFrameAction").disabled = !state.frameActionHistory.length; $("#redoFrameAction").disabled = !state.frameActionFuture.length; }
-function duplicateFrame() { const frame = currentFrame(); if (!frame) return; pushFrameActionHistory(); const copy = { id: `${Date.now()}-copy`, name: `${frame.name}_copy`, data: frame.data, width: frame.width, height: frame.height, history: [], future: [] }; state.frames.splice(state.selected + 1, 0, copy); state.selected += 1; state.selectedFrames = new Set([state.selected]); state.multiSelecting = false; markDirty(); refreshUI(); }
+function duplicateFrame() { const frame = currentFrame(); if (!frame) return; pushFrameActionHistory(); const copy = { id: `${Date.now()}-copy`, name: `${frame.name}_copy`, data: frame.data, width: frame.width, height: frame.height, layers:structuredClone(PixelLayers.ensure(frame)),activeLayer:frame.activeLayer,duration:frame.duration||.12,history: [], future: [] }; state.frames.splice(state.selected + 1, 0, copy); state.selected += 1; state.selectedFrames = new Set([state.selected]); state.multiSelecting = false; markDirty(); refreshUI(); }
 function deleteFrame() {
   if (!state.frames.length) return;
   const selected = state.selectedFrames.size ? [...state.selectedFrames] : [state.selected];
@@ -485,12 +496,12 @@ function deleteFrame() {
   markDirty();
 }
 
-function projectData() { return { format: "PixelDecomposer", version: 3, name: $("#editorProjectName").value.trim() || state.projectName, source: state.source, regions: state.regions, palette: state.palette, frames: state.frames.map(({ id, name, data, width, height }) => ({ id, name, data, width, height })), editorMode: state.sourceEditFrameId ? "source" : undefined, sourceEditFrameId: state.sourceEditFrameId || undefined, sourceEditOriginalSize: state.sourceEditOriginalSize || undefined }; }
+function projectData() { return { ...state.projectExtras, format: "PixelDecomposer", version: 3, name: $("#editorProjectName").value.trim() || state.projectName, source: state.source, regions: state.regions, palette: state.palette, frames: state.frames.map(PixelLayers.snapshot), editorMode: state.sourceEditFrameId ? "source" : undefined, sourceEditFrameId: state.sourceEditFrameId || undefined, sourceEditOriginalSize: state.sourceEditOriginalSize || undefined }; }
 function materializeSourceProject(project) {
   if (!state.sourceEditFrameId) return project;
   const sourceFrame = state.frames.find((frame) => frame.id === state.sourceEditFrameId) || currentFrame();
   if (!sourceFrame) throw new Error("Missing source editing frame");
-  const result = { ...project, source: { name: state.source.name || `${safeName(sourceFrame.name)}.png`, data: sourceFrame.data }, frames: [], alignment: null };
+  const result = { ...project, sourceDrawing:PixelLayers.snapshot(sourceFrame), drawingFrames:project.frames, source: { name: state.source.name || `${safeName(sourceFrame.name)}.png`, data: sourceFrame.data }, frames: [], alignment: null };
   const original = state.sourceEditOriginalSize;
   if (original && (sourceFrame.width !== original.width || sourceFrame.height !== original.height)) result.regions = [];
   delete result.editorMode; delete result.sourceEditFrameId; delete result.sourceEditOriginalSize;

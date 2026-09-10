@@ -4,7 +4,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "www");
 const vendor = path.join(output, "vendor");
-const paintingFiles = ['paint-tools.js'];
+const paintingFiles = ['paint-tools.js','appearance.js','appearance.css','paint-layers.js','drawing-studio.js'];
 const appFiles = ["index.html", "editor.html", "gif.html", "settings.html", "styles.css", "app.js", "editor.js", "gif.js", "settings.js", "i18n.js", "project-lifecycle.js", "workspace-transfer.js", "chroma.js", "animation-studio.js"];
 
 fs.rmSync(output, { recursive: true, force: true });

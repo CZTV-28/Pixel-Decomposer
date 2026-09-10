@@ -70,7 +70,7 @@ function applyProject(project) {
 }
 
 function normalizeFrames(frames) {
-  return frames.filter((frame) => frame?.data && Number(frame.width) > 0 && Number(frame.height) > 0).map((frame, index) => ({ id: frame.id || `${Date.now()}-${index}`, name: frame.name || `frame_${index + 1}`, data: frame.data, width: Number(frame.width), height: Number(frame.height), duration: normalizeDuration(frame.duration) }));
+  return frames.filter((frame) => frame?.data && Number(frame.width) > 0 && Number(frame.height) > 0).map((frame, index) => ({ ...frame, id: frame.id || `${Date.now()}-${index}`, name: frame.name || `frame_${index + 1}`, data: frame.data, width: Number(frame.width), height: Number(frame.height), duration: normalizeDuration(frame.duration) }));
 }
 
 function normalizeDuration(value) {
@@ -222,7 +222,7 @@ function projectData() {
   const { _transientDirty, ...project } = state.project || {};
   const name = $("#gifProjectName").value.trim() || state.projectName;
   state.projectName = name;
-  return { ...project, format: "PixelDecomposer", version: 3, name, gifSourceFrames: state.availableFrames.map(({ id, name: frameName, data, width, height }) => ({ id, name: frameName, data, width, height })), frames: state.frames.map(({ id, name: frameName, data, width, height, duration }) => ({ id, name: frameName, data, width, height, duration })) };
+  return { ...project, format: "PixelDecomposer", version: 3, name, gifSourceFrames: structuredClone(state.availableFrames), frames: structuredClone(state.frames) };
 }
 function persistDraft() {
   void saveWorkspaceDraft("pixel-decomposer-gif-draft", { ...projectData(), _transientDirty: state.dirty });

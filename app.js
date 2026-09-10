@@ -877,25 +877,30 @@ function opaqueBounds(region) {
   return maxX < 0 ? { x: 0, y: 0, width: region.width, height: region.height } : { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 function ensureFrames() { return state.frames.length || splitAllRegions(); }
+function sourceExportFrame(){return state.sourceData?{name:state.sourceName?.replace(/\.[^.]+$/,'')||'canvas',data:sourceCanvas.toDataURL('image/png'),width:sourceCanvas.width,height:sourceCanvas.height}:null;}
+async function exportWholePng(){const frame=sourceExportFrame();if(!frame)return toast('请先导入图片或创建画布。','error');try{const scale=Number($('#pngScale').value)||1;await downloadBlob(await canvasToBlob(await frameCanvas(frame,scale)),`${safeName(frame.name)}_whole.png`);toast('整张 PNG 已导出。');}catch{toast('PNG 导出失败。','error');}}
+document.addEventListener('DOMContentLoaded',()=>{const b=document.createElement('button');b.className='export-action';b.innerHTML='<i data-lucide="image-down"></i><span>整张 PNG</span>';b.onclick=exportWholePng;document.querySelector('#pngExportButton').before(b);const m=b.cloneNode(true);m.className='command-button';m.onclick=exportWholePng;document.querySelector('.toolbar-left').append(m);window.lucide?.createIcons();});
 
 async function exportSelectedPng() {
-  if (!state.frames.length || !selectedFrame()) { toast("请先点击“全部拆出”，再从下方选择要导出的帧。", "error"); return; }
+  const frame=selectedFrame()||sourceExportFrame();
+  if(!frame){toast('请先导入图片或创建画布。','error');return;}
   const scale = Number($("#pngScale").value);
-  const canvas = await frameCanvas(selectedFrame(), scale);
+  const canvas = await frameCanvas(frame, scale);
   try {
-    const destination = await downloadBlob(await canvasToBlob(canvas), `${safeName(selectedFrame().name)}_x${scale}.png`);
+    const destination = await downloadBlob(await canvasToBlob(canvas), `${safeName(frame.name)}_x${scale}.png`);
     toast(destination === "gallery" ? `透明 PNG X${scale} 已保存到相册。` : `透明 PNG X${scale} 已开始下载。`);
   } catch {
     toast("PNG 导出失败，请确认设备存储空间和权限。", "error");
   }
 }
 async function exportZip() {
-  if (!ensureFrames()) return;
+  const frames=state.frames.length?state.frames:[sourceExportFrame()].filter(Boolean);
+  if(!frames.length){toast('请先导入图片或创建画布。','error');return;}
   if (!window.JSZip) { toast("压缩组件仍在加载，请稍后重试。", "error"); return; }
   const scale = Number($("#pngScale").value);
   toast(`正在压缩 X${scale} PNG 素材包...`);
   const zip = new JSZip();
-  for (const [index, frame] of state.frames.entries()) {
+  for (const [index, frame] of frames.entries()) {
     const canvas = await frameCanvas(frame, scale);
     zip.file(`${String(index + 1).padStart(2, "0")}_${safeName(frame.name)}_x${scale}.png`, canvas.toDataURL("image/png").split(",")[1], { base64: true });
   }
@@ -916,7 +921,7 @@ function frameCanvas(frame, scale = 1) {
   });
 }
 
-function projectData() { return { format: "PixelDecomposer", version: 3, name: $("#projectName").value.trim() || "未命名贴图工程", source: { name: state.sourceName, data: state.sourceData }, regions: state.regions, frames: state.frames, palette: state.palette, alignment: state.alignment }; }
+function projectData() { return { format: "PixelDecomposer", version: 3, name: $("#projectName").value.trim() || "未命名贴图工程", source: { name: state.sourceName, data: state.sourceData }, sourceDrawing:state.sourceDrawing?.data===state.sourceData?state.sourceDrawing:undefined,drawingFrames:state.sourceDrawing?.data===state.sourceData?state.drawingFrames:undefined, regions: state.regions, frames: state.frames, palette: state.palette, alignment: state.alignment }; }
 async function saveProject() {
   const project = projectData();
   try {
@@ -962,6 +967,7 @@ async function goToEditor(forceSourceMode = false) {
     project.sourceEditFrameId = sourceFrameId;
     project.sourceEditOriginalSize = { width: sourceCanvas.width, height: sourceCanvas.height };
     project.frames = [{ id: sourceFrameId, name: state.sourceName.replace(/\.[^.]+$/, "") || "source_canvas", data: state.sourceData, width: sourceCanvas.width, height: sourceCanvas.height }];
+    if(project.sourceDrawing){project.frames=project.drawingFrames?.length?project.drawingFrames:[project.sourceDrawing];project.sourceEditFrameId=project.sourceDrawing.id;}
   }
   try { await saveWorkspaceDraft("pixel-decomposer-editor-draft", { ...project, _transientDirty: state.dirty }); PixelProjectLifecycle?.allowNavigation?.(); window.location.href = "editor.html?from=split"; }
   catch { toast("无法在本地传递帧数据，请先保存工程文件后在编辑页面打开。", "error"); }
@@ -1005,6 +1011,7 @@ async function takeWorkspaceDraft(key) {
 }
 
 function applyProjectData(project, complete, preserveDirty = false) {
+  state.sourceDrawing=project.sourceDrawing;state.drawingFrames=project.drawingFrames;
   state.sourceName = project.source?.name || "未命名源贴图";
   state.sourceData = project.source?.data || "";
   state.regions = Array.isArray(project.regions) ? project.regions : [];

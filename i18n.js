@@ -42,6 +42,13 @@
     }
   };
   const studioLabels = [
+    ['背景颜色','Background color','背景色'],['颜色容差（0–255）','Color tolerance (0–255)','色の許容差（0–255）'],['读取左上角颜色','Sample top-left pixel','左上の色を取得'],['应用去底色','Apply removal','背景除去を適用'],['恢复原图','Restore original','元画像に戻す'],['关闭','Close','閉じる'],
+    ['去除整张图中所有匹配颜色（含内部区域）','Remove all matching pixels, including enclosed areas','画像全体の一致する色を除去（内部領域を含む）'],
+    ['多色背景转透明','Remove multiple background colors','複数の背景色を透明化'],['添加颜色','Add color','色を追加'],['预览倍率','Preview zoom','プレビュー倍率'],['查看原图','Show original','元画像を表示'],['点击底色取色','Click a background color to sample','背景色をクリックして取得'],
+    ['点击预览中的底色取色，可连续添加多种颜色。默认清除边缘和取色位置连通的区域，保留其他封闭区域。','Click background colors in the preview to add multiple colors. By default, remove matching areas connected to the edges or sampled points, preserving other enclosed areas.','プレビューの背景をクリックして複数色を追加できます。初期設定では端または取得位置につながる領域を消去し、他の閉じた領域は保持します。'],
+    ['点击颜色标签可移除。取错位置时，移除该颜色后重新取色。','Click a color tag to remove it. If you sampled the wrong area, remove that color and sample again.','色のラベルをクリックすると削除できます。取得位置を間違えた場合は、その色を削除して再取得してください。'],
+    ['应用会清空当前拆分结果与选区。工程保留原图备份；关闭预览不会修改贴图。','Applying clears current split frames and selections. The project retains an original backup; closing the preview does not change the image.','適用すると分割結果と選択範囲が消去されます。プロジェクトには元画像のバックアップを保持します。プレビューを閉じるだけでは画像は変更されません。'],
+    ['此处已经透明，请选择有颜色的位置。','This pixel is already transparent. Choose a colored pixel.','このピクセルはすでに透明です。色のある位置を選んでください。'],
     ['在画布上拖动选中的部件。身体不需要动？不要给身体设置起点和终点。','Drag the selected part on the canvas. To keep the body still, leave its start and end positions unset.','選択したパーツをキャンバス上でドラッグします。胴体を静止させる場合は始点と終点を設定しないでください。'],
     ['1 · 添加素材','1 · Add artwork','1 · 素材を追加'],
     ['设置导出画面大小，再导入头、身体等部件。只拼接现成图片？返回 GIF 页面直接导入图片即可。','Set the output canvas size, then import parts such as a head and body. For complete images, return to the GIF page and import them directly.','出力サイズを設定し、頭や胴体などのパーツを読み込みます。完成した画像を並べるだけなら、GIF画面で直接読み込めます。'],
@@ -72,6 +79,10 @@
     ['请先添加部件图层。','Add a part layer first.','先にパーツレイヤーを追加してください。'],['部件导入失败。','Could not import the part.','パーツを読み込めませんでした。'],
     ['动作过大，请减小画布或提高帧间隔（最多 600 帧）。','Animation is too large. Reduce the canvas size or increase the frame interval (maximum 600 frames).','アニメーションが大きすぎます。キャンバスを小さくするか、フレーム間隔を長くしてください（最大600フレーム）。']
   ];
+  studioLabels.push(
+    ['外观主题','Appearance','外観テーマ'],['跟随系统','System','システム設定'],['浅色','Light','ライト'],['深色','Dark','ダーク'],['日间浅色 / 夜间深色','Light by day / dark at night','昼はライト・夜はダーク'],['文字大小','Text size','文字サイズ'],['自适应','Adaptive','自動調整'],['玻璃效果','Glass effect','ガラス効果'],
+    ['图层与画笔','Layers & brushes','レイヤーとブラシ'],['圆头画笔','Round brush','丸ブラシ'],['柔边画笔','Soft brush','ソフトブラシ'],['柔绘橡皮','Round eraser','丸消しゴム'],['文字','Text','文字'],['文字内容','Text content','入力する文字'],['压感','Pen pressure','筆圧'],['新建图层','New layer','新規レイヤー'],['导入图层','Import layer','レイヤーを読み込む'],['向下合并','Merge down','下のレイヤーと結合'],['图层名称','Layer name','レイヤー名'],['图层不透明度','Layer opacity','レイヤーの不透明度'],['显示图层','Show layer','レイヤーを表示'],['锁定图层','Lock layer','レイヤーをロック'],['帧时长','Frame duration','フレームの表示時間'],['前移帧','Move frame earlier','フレームを前へ'],['后移帧','Move frame later','フレームを後へ'],['洋葱皮','Onion skin','オニオンスキン'],['图片无法读取','Could not read the image','画像を読み込めませんでした'],['导出整图 PNG','Export whole image PNG','画像全体をPNGで書き出す']
+  );
   studioLabels.forEach(([zh,en,ja])=>{dictionary.en[zh]=en;dictionary.ja[zh]=ja;});
   const originalText = new WeakMap();
   const originalAttributes = new WeakMap();
